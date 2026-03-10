@@ -1,8 +1,8 @@
 const https = require('https');
 
-function request(hostname, path, method = 'GET', headers = {}, body = null) {
+function request(hostname, path, headers = {}) {
   return new Promise((resolve, reject) => {
-    const req = https.request({ hostname, path, method, headers }, (res) => {
+    const req = https.request({ hostname, path, method: 'GET', headers }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
@@ -12,7 +12,6 @@ function request(hostname, path, method = 'GET', headers = {}, body = null) {
     });
     req.on('error', reject);
     req.setTimeout(15000, () => { req.destroy(); reject(new Error('Timeout')); });
-    if (body) req.write(body);
     req.end();
   });
 }
@@ -23,51 +22,23 @@ exports.handler = async (event) => {
     'Content-Type': 'application/json'
   };
 
-  const email = process.env.LEFIVE_EMAIL;
-  const password = process.env.LEFIVE_PASSWORD;
+  const token = process.env.LEFIVE_TOKEN;
+  const userId = process.env.LEFIVE_USER_ID || '1623729';
   const reservationId = event.queryStringParameters?.reservationId;
 
-  if (!email || !password) {
-    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: 'Identifiants manquants', ok: false }) };
+  if (!token) {
+    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: 'Token manquant', ok: false }) };
   }
 
   try {
-    // 1. Login via le bon endpoint
-    const formBody = `email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
-
-    const loginRes = await request(
-      'api2-front.lefive.fr',
-      '/login/client?appId=1&isChannelWeb=true',
-      'POST',
-      {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(formBody),
-        'Accept': 'text/plain, */*',
-        'Origin': 'https://www.lefive.fr',
-        'Referer': 'https://www.lefive.fr/',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
-      },
-      formBody
-    );
-
-    // Le token peut être dans json.token, json.accessToken, ou directement dans raw
-    const token = loginRes.json?.token || loginRes.json?.accessToken || loginRes.json?.id_token || loginRes.raw;
-    const userId = loginRes.json?.id || loginRes.json?.userId || loginRes.json?.user?.id || 1623729;
-
-    if (!token || token.length < 20) {
-      return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: 'Login échoué', detail: loginRes.raw?.substring(0, 200), ok: false }) };
-    }
-
-    // 2. Récupérer les réservations
     const now = new Date();
     const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const to = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000).toISOString();
-    const bookingsPath = `/splf/v1/bookings?owner_like=${userId}&from=${from}&to=${to}&_limit=20&appId=1&includeFixtureId=true`;
+    const path = `/splf/v1/bookings?owner_like=${userId}&from=${from}&to=${to}&_limit=20&appId=1&includeFixtureId=true`;
 
-    const bookingsRes = await request(
+    const res = await request(
       'api-front.lefive.fr',
-      bookingsPath,
-      'GET',
+      path,
       {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
@@ -77,13 +48,13 @@ exports.handler = async (event) => {
       }
     );
 
-    if (!Array.isArray(bookingsRes.json)) {
-      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: 'Réponse inattendue', detail: bookingsRes.raw?.substring(0, 200), ok: false }) };
+    if (!Array.isArray(res.json)) {
+      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: 'Réponse inattendue', detail: res.raw?.substring(0, 200), ok: false }) };
     }
 
-    const bookings = bookingsRes.json;
+    const bookings = res.json;
 
-    // 3. Chercher la réservation par ID
+    // Chercher une réservation spécifique
     if (reservationId) {
       const resa = bookings.find(b => String(b.id) === String(reservationId));
       if (!resa) {
@@ -105,7 +76,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // 4. Sans ID : retourner toutes les réservations à venir confirmées
+    // Sans ID : toutes les réservations confirmées à venir
     const upcoming = bookings
       .filter(b => b.booking_status === 'Confirmed' && new Date(b.startingDate) > now)
       .map(b => ({
