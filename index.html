@@ -306,10 +306,8 @@
     // Charger le compteur de joueurs pour chaque match avec resaId
     const now2 = new Date();
     sorted.forEach(m => {
-      if (m.resaId && !isPast) {
-        const dt2 = new Date(m.date + 'T' + (m.time || '00:00'));
-        if (dt2 >= now2) fetchPlayerCount(m.id, m.resaId);
-      }
+      const dt2 = new Date(m.date + 'T' + (m.time || '00:00'));
+      if (m.resaId && dt2 >= now2) fetchPlayerCount(m.id, m.resaId);
     });
   }
 
