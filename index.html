@@ -410,11 +410,48 @@
     return '';
   }
 
-  // Auto-remplir le n° de résa quand l'URL change
-  document.getElementById('inp-link').addEventListener('input', function() {
+  // Auto-remplir tous les champs quand l'URL change
+  document.getElementById('inp-link').addEventListener('input', async function() {
     const extracted = extractResaId(this.value);
-    if (extracted) {
-      document.getElementById('inp-resaid').value = extracted;
+    if (!extracted) return;
+
+    // Remplir le n° de résa immédiatement
+    document.getElementById('inp-resaid').value = extracted;
+
+    // Appeler l'API pour récupérer date, heure, lieu
+    try {
+      const inp_date = document.getElementById('inp-date');
+      const inp_time = document.getElementById('inp-time');
+      const inp_location = document.getElementById('inp-location');
+      const inp_resaid = document.getElementById('inp-resaid');
+
+      inp_date.placeholder = '⏳ chargement...';
+      inp_location.placeholder = '⏳ chargement...';
+
+      const res = await fetch('/.netlify/functions/lefive?reservationId=' + extracted);
+      const data = await res.json();
+
+      if (data.ok) {
+        // Date et heure depuis startingDate (UTC → heure locale Paris)
+        const dt = new Date(data.date);
+        const localDate = dt.toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' }); // format YYYY-MM-DD
+        const localTime = dt.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' });
+
+        inp_date.value = localDate;
+        inp_time.value = localTime;
+        inp_location.value = data.centre || '';
+        inp_resaid.value = extracted;
+
+        // Flash vert sur tous les champs
+        [inp_date, inp_time, inp_location, inp_resaid].forEach(el => {
+          el.style.borderColor = 'var(--green)';
+          setTimeout(() => el.style.borderColor = '', 2000);
+        });
+      }
+
+      inp_date.placeholder = '';
+      inp_location.placeholder = 'ex: LeFive Paris 11e';
+    } catch(e) {
       document.getElementById('inp-resaid').style.borderColor = 'var(--green)';
       setTimeout(() => document.getElementById('inp-resaid').style.borderColor = '', 2000);
     }
