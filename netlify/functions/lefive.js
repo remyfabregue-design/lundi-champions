@@ -1,19 +1,13 @@
 const https = require('https');
 
-function request(url, options = {}, body = null) {
+function request(hostname, path, method = 'GET', headers = {}, body = null) {
   return new Promise((resolve, reject) => {
-    const u = new URL(url);
-    const req = https.request({
-      hostname: u.hostname,
-      path: u.pathname + u.search,
-      method: options.method || 'GET',
-      headers: options.headers || {},
-    }, (res) => {
+    const req = https.request({ hostname, path, method, headers }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        try { resolve({ json: JSON.parse(data), status: res.statusCode, headers: res.headers }); }
-        catch(e) { resolve({ json: null, raw: data, status: res.statusCode, headers: res.headers }); }
+        try { resolve({ json: JSON.parse(data), status: res.statusCode }); }
+        catch(e) { resolve({ json: null, raw: data, status: res.statusCode }); }
       });
     });
     req.on('error', reject);
@@ -38,54 +32,58 @@ exports.handler = async (event) => {
   }
 
   try {
-    // 1. Authentification via l'API LeFive
-    const loginBody = JSON.stringify({ username: email, password });
+    // 1. Login via le bon endpoint
+    const formBody = `email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
+
     const loginRes = await request(
-      'https://api-front.lefive.fr/splf/v1/authenticate',
+      'api2-front.lefive.fr',
+      '/login/client?appId=1&isChannelWeb=true',
+      'POST',
       {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': 'https://www.lefive.fr',
-          'Referer': 'https://www.lefive.fr/',
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
-        }
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(formBody),
+        'Accept': 'text/plain, */*',
+        'Origin': 'https://www.lefive.fr',
+        'Referer': 'https://www.lefive.fr/',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
       },
-      loginBody
+      formBody
     );
 
-    if (!loginRes.json?.token) {
-      return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: 'Connexion LeFive échouée', detail: loginRes.raw, ok: false }) };
-    }
+    // Le token peut être dans json.token, json.accessToken, ou directement dans raw
+    const token = loginRes.json?.token || loginRes.json?.accessToken || loginRes.json?.id_token || loginRes.raw;
+    const userId = loginRes.json?.id || loginRes.json?.userId || loginRes.json?.user?.id || 1623729;
 
-    const token = loginRes.json.token;
-    const userId = loginRes.json.id || loginRes.json.userId;
+    if (!token || token.length < 20) {
+      return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ error: 'Login échoué', detail: loginRes.raw?.substring(0, 200), ok: false }) };
+    }
 
     // 2. Récupérer les réservations
     const now = new Date();
-    const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(); // -7 jours
-    const to = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000).toISOString(); // +6 mois
+    const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const to = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000).toISOString();
+    const bookingsPath = `/splf/v1/bookings?owner_like=${userId}&from=${from}&to=${to}&_limit=20&appId=1&includeFixtureId=true`;
 
-    const bookingsUrl = `https://api-front.lefive.fr/splf/v1/bookings?owner_like=${userId}&from=${from}&to=${to}&_limit=20&appId=1&includeFixtureId=true`;
-
-    const bookingsRes = await request(bookingsUrl, {
-      headers: {
+    const bookingsRes = await request(
+      'api-front.lefive.fr',
+      bookingsPath,
+      'GET',
+      {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
         'Origin': 'https://www.lefive.fr',
         'Referer': 'https://www.lefive.fr/',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36',
       }
-    });
+    );
 
     if (!Array.isArray(bookingsRes.json)) {
-      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: 'Réponse inattendue', detail: bookingsRes.raw, ok: false }) };
+      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: 'Réponse inattendue', detail: bookingsRes.raw?.substring(0, 200), ok: false }) };
     }
 
     const bookings = bookingsRes.json;
 
-    // 3. Si un reservationId est fourni, chercher cette résa précise
+    // 3. Chercher la réservation par ID
     if (reservationId) {
       const resa = bookings.find(b => String(b.id) === String(reservationId));
       if (!resa) {
@@ -107,7 +105,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // 4. Sans reservationId, retourner toutes les réservations à venir (confirmées)
+    // 4. Sans ID : retourner toutes les réservations à venir confirmées
     const upcoming = bookings
       .filter(b => b.booking_status === 'Confirmed' && new Date(b.startingDate) > now)
       .map(b => ({
@@ -117,7 +115,6 @@ exports.handler = async (event) => {
         affichage: `${b.nbOfPaidParticipations}/${b.capacity}`,
         centre: b.center?.centerName,
         date: b.startingDate,
-        status: b.booking_status,
       }));
 
     return {
