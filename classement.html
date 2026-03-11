@@ -156,7 +156,8 @@
         <tr>
           <th style="width:40px;">#</th>
           <th class="col-name">Joueur</th>
-          <th>MJ</th>
+          <th>Pts</th>
+          <th class="hide-mobile">MJ</th>
           <th class="hide-mobile">V</th>
           <th class="hide-mobile">N</th>
           <th class="hide-mobile">D</th>
@@ -170,6 +171,22 @@
       <span class="empty-icon">📊</span>
       <p>Pas encore assez de données pour établir un classement.</p>
       <p style="margin-top:8px;font-size:13px;">Revenez après le prochain match !</p>
+    </div>
+  </div>
+</div>
+
+<div class="container" style="margin-bottom:48px;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px 28px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;margin-bottom:16px;color:var(--green);">📐 Comment fonctionne le classement ?</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.8;display:flex;flex-direction:column;gap:10px;">
+      <div><strong style="color:var(--text);">🥇 Critère principal — Ratio de victoires</strong><br>
+      Le classement est avant tout déterminé par le ratio V/MJ : nombre de victoires divisé par le nombre de matchs joués. Un joueur avec 3V sur 4 matchs (75%) devance un joueur avec 5V sur 10 matchs (50%).</div>
+      <div><strong style="color:var(--text);">⚖️ Départage — Points cumulés</strong><br>
+      En cas d'égalité de ratio, on compare les points : <span style="color:var(--green);">Victoire = 3 pts</span>, <span style="color:#888;">Match nul = 1 pt</span>, <span style="color:#e53935;">Défaite = 0 pt</span>.</div>
+      <div><strong style="color:var(--text);">⚽ Second départage — Différence de buts</strong><br>
+      Si le ratio et les points sont identiques, c'est la différence de buts (buts marqués − buts encaissés sur l'ensemble des matchs) qui tranche.</div>
+      <div style="border-top:1px solid var(--border);padding-top:10px;font-size:12px;">
+      Les équipes sont reconstituées après chaque match à partir des données LeFive, et peuvent être corrigées manuellement par l'admin. Seuls les matchs avec score et composition d'équipes connues sont pris en compte.</div>
     </div>
   </div>
 </div>
@@ -311,7 +328,8 @@ function buildRanking(allMatches) {
     return '<tr class="' + rankClass + '" ' + rowStyle + '>'
       + '<td class="col-rank">' + medal + rank + '</td>'
       + '<td class="col-name"><div class="player-cell"><div class="player-init">' + initials + '</div><span class="player-name">' + p.name + '</span></div></td>'
-      + '<td>' + p.mj + '</td>'
+      + '<td style="font-family:Bebas Neue,sans-serif;font-size:18px;color:var(--green);">' + p.points + '</td>'
+      + '<td class="hide-mobile">' + p.mj + '</td>'
       + '<td class="hide-mobile badge-v">' + p.v + '</td>'
       + '<td class="hide-mobile badge-n">' + p.n + '</td>'
       + '<td class="hide-mobile badge-d">' + p.d + '</td>'
