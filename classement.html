@@ -234,9 +234,9 @@ function buildRanking(allMatches) {
     if (dt >= now) return;
 
     // Need score + at least one team
-    const scoreA = m.scoreA;
-    const scoreB = m.scoreB;
-    if (scoreA === undefined || scoreB === undefined) return;
+    const scoreA = m.scoreA !== undefined ? m.scoreA : null;
+    const scoreB = m.scoreB !== undefined ? m.scoreB : null;
+    if (scoreA === null || scoreB === null) return;
 
     // Teams: prefer Firebase corrections, fallback to API data stored
     const teamA = m.teamA ? Object.values(m.teamA) : [];
