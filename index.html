@@ -333,6 +333,11 @@
 
     const now = new Date();
 
+    function buildMobileBtn(m) {
+      if (m.link) return '<a href="' + m.link + '" target="_blank" rel="noopener" class="btn-join-mobile">⚽ Rejoindre sur LeFive</a>';
+      return '<div class="btn-join-mobile" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-weight:400;font-size:13px;font-style:italic;opacity:0.7;">⏳ Bientôt disponible</div>';
+    }
+
     function buildCard(m, i, isPast) {
       const dt = new Date(m.date + 'T' + (m.time || '00:00'));
       const day = dt.getDate();
@@ -370,7 +375,7 @@
             <span class="soon-badge">⏳ Bientôt disponible</span>
           </div>`) : ''}
         </div>
-        ${!isPast ? (m.link ? `<a href="${m.link}" target="_blank" rel="noopener" class="btn-join-mobile">⚽ Rejoindre sur LeFive</a>` : `<div class="btn-join-mobile" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-weight:400;font-size:13px;font-style:italic;opacity:0.7;">⏳ Bientôt disponible</div>`) : ''}
+        ${!isPast ? buildMobileBtn(m) : ''}
         ${isPast && m.resaId ? `<div class="match-result" id="result-${m.id}">
           <div class="score-loading">⏳ Chargement du résultat...</div>
         </div>` : ''}
@@ -735,17 +740,18 @@
     container.innerHTML = sorted.map(m => {
       const dt = new Date(m.date + 'T00:00:00');
       const label = dt.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long' });
-      return `<div class="admin-match-row">
-        <div class="admin-match-info">
-          <strong>${label}${m.time ? ' · ' + m.time.substring(0,5) : ''}</strong>
-          <span>${m.location || ''}${m.resaId ? ' · #' + m.resaId : ''}</span>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
-          ${m.matchId ? `<button class="btn-edit" style="background:rgba(0,230,118,0.1);border-color:rgba(0,230,118,0.3);" onclick="openTeams('${m.id}')">🔀 Équipes</button>` : ''}
-          <button class="btn-edit" onclick="openEdit('${m.id}')">✏️ Modifier</button>
-          <button class="btn-delete" onclick="deleteMatch('${m.id}')">Supprimer</button>
-        </div>
-      </div>`;
+      const teamsBtn = m.matchId ? '<button class="btn-edit" style="background:rgba(0,230,118,0.1);border-color:rgba(0,230,118,0.3);" onclick="openTeams(&quot;' + m.id + '&quot;)">🔀 Équipes</button>' : '';
+      return '<div class="admin-match-row">'
+        + '<div class="admin-match-info">'
+        + '<strong>' + label + (m.time ? ' · ' + m.time.substring(0,5) : '') + '</strong>'
+        + '<span>' + (m.location || '') + (m.resaId ? ' · #' + m.resaId : '') + '</span>'
+        + '</div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">'
+        + teamsBtn
+        + '<button class="btn-edit" onclick="openEdit(&quot;' + m.id + '&quot;)">✏️ Modifier</button>'
+        + '<button class="btn-delete" onclick="deleteMatch(&quot;' + m.id + '&quot;)">Supprimer</button>'
+        + '</div>'
+        + '</div>';
     }).join('');
   }
 
