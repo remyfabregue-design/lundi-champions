@@ -486,6 +486,12 @@
         const winA = data.scoreA > data.scoreB;
         const winB = data.scoreB > data.scoreA;
 
+        // Sauvegarder le score dans Firebase si pas déjà fait
+        const currentMatch = allMatches[matchId];
+        if (currentMatch && currentMatch.scoreA === undefined) {
+          update(ref(db, 'matchs/' + matchId), { scoreA: data.scoreA, scoreB: data.scoreB });
+        }
+
         // Joueurs déjà dans la réponse
         let playersHtml = '';
         if (data.teamA && data.teamB && (data.teamA.length > 0 || data.teamB.length > 0)) {
