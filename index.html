@@ -199,6 +199,10 @@
         <label>N° Réservation LeFive (pour le compteur)</label>
         <input type="text" id="inp-resaid" placeholder="ex: 9544177">
       </div>
+      <div class="form-group">
+        <label>Lien résultat LeFive <span class="auto-badge">✨ auto-détecté</span></label>
+        <input type="url" id="inp-matchurl" placeholder="https://lefive.fr/.../matchs/detail/6457957">
+      </div>
       <button class="btn-add" id="btn-add" onclick="addMatch()">Ajouter ce match</button>
 
       <div class="admin-matches">
@@ -238,6 +242,10 @@
       <div class="form-group">
         <label>N° Réservation <span class="auto-badge">✨ auto-détecté</span></label>
         <input type="text" id="edit-resaid" placeholder="ex: 9544177">
+      </div>
+      <div class="form-group">
+        <label>Lien résultat LeFive <span class="auto-badge">✨ auto-détecté</span></label>
+        <input type="url" id="edit-matchurl" placeholder="https://lefive.fr/.../matchs/detail/6457957">
       </div>
       <div style="margin-top:20px">
         <button class="btn-save" onclick="saveEdit()">Enregistrer</button>
@@ -389,7 +397,7 @@
 
     // Charger le résultat pour les matchs passés
     past.forEach(m => {
-      if (m.resaId) fetchMatchResult(m.id, m.resaId);
+      if (m.matchId || m.resaId) fetchMatchResult(m.id, m.resaId, m.matchId);
     });
   }
 
@@ -417,12 +425,20 @@
     }
   }
 
-  async function fetchMatchResult(matchId, resaId) {
+  async function fetchMatchResult(matchId, resaId, fixtureId) {
     const container = document.getElementById('result-' + matchId);
     if (!container) return;
     try {
-      const res = await fetch('/.netlify/functions/lefive?reservationId=' + resaId);
-      const data = await res.json();
+      // Si on a le matchId LeFive directement, on l'utilise
+      let data;
+      if (fixtureId) {
+        const res = await fetch('/.netlify/functions/lefive?matchId=' + fixtureId);
+        data = await res.json();
+        if (data.ok) { data.ended = true; data.matchId = fixtureId; }
+      } else {
+        const res = await fetch('/.netlify/functions/lefive?reservationId=' + resaId);
+        data = await res.json();
+      }
 
       if (!data.ok) { container.style.display = 'none'; return; }
 
@@ -551,7 +567,6 @@
   // Extraire le n° de résa depuis une URL LeFive
   function extractResaId(url) {
     if (!url) return '';
-    // Formats: /reservation/9544177, /resa/9544177, ?id=9544177, /booking/9544177
     const patterns = [
       /\/(?:reservation|resa|booking|bookings?)\/(\d+)/i,
       /[?&](?:id|bookingId|reservationId)=(\d+)/i,
@@ -563,6 +578,30 @@
     }
     return '';
   }
+
+  // Extraire le matchId depuis une URL de résultat LeFive
+  function extractMatchId(url) {
+    if (!url) return '';
+    const m = url.match(/\/matchs\/detail\/(\d+)/i);
+    return m ? m[1] : '';
+  }
+
+  // Auto-fill matchId quand l'URL résultat change
+  document.getElementById('inp-matchurl').addEventListener('input', function() {
+    const extracted = extractMatchId(this.value);
+    if (extracted) {
+      this.style.borderColor = 'var(--green)';
+      setTimeout(() => this.style.borderColor = '', 2000);
+    }
+  });
+
+  document.getElementById('edit-matchurl').addEventListener('input', function() {
+    const extracted = extractMatchId(this.value);
+    if (extracted) {
+      this.style.borderColor = 'var(--green)';
+      setTimeout(() => this.style.borderColor = '', 2000);
+    }
+  });
 
   // Auto-remplir tous les champs quand l'URL change
   document.getElementById('inp-link').addEventListener('input', async function() {
@@ -626,6 +665,8 @@
     const location = document.getElementById('inp-location').value.trim();
     const link = document.getElementById('inp-link').value.trim();
     const resaId = document.getElementById('inp-resaid').value.trim() || extractResaId(link);
+    const matchUrl = document.getElementById('inp-matchurl').value.trim();
+    const matchId = extractMatchId(matchUrl);
 
     if (!date) { alert('Veuillez saisir une date.'); return; }
 
@@ -633,13 +674,14 @@
     btn.disabled = true;
     btn.textContent = 'Enregistrement...';
 
-    await push(matchsRef, { date, time, location, link, resaId });
+    await push(matchsRef, { date, time, location, link, resaId, matchId });
 
     document.getElementById('inp-date').value = '';
     document.getElementById('inp-time').value = '20:00';
     document.getElementById('inp-location').value = '';
     document.getElementById('inp-link').value = '';
     document.getElementById('inp-resaid').value = '';
+    document.getElementById('inp-matchurl').value = '';
 
     btn.disabled = false;
     btn.textContent = 'Ajouter ce match';
@@ -690,6 +732,7 @@
     document.getElementById('edit-location').value = m.location || '';
     document.getElementById('edit-link').value = m.link || '';
     document.getElementById('edit-resaid').value = m.resaId || '';
+    document.getElementById('edit-matchurl').value = m.matchId ? `https://lefive.fr/paris_18/matchs/detail/${m.matchId}` : '';
     document.getElementById('edit-modal').classList.add('visible');
   };
 
@@ -704,10 +747,12 @@
     const location = document.getElementById('edit-location').value.trim();
     const link = document.getElementById('edit-link').value.trim();
     const resaId = document.getElementById('edit-resaid').value.trim() || extractResaId(link);
+    const matchUrl = document.getElementById('edit-matchurl').value.trim();
+    const matchId = extractMatchId(matchUrl) || document.getElementById('edit-resaid').dataset.matchid || '';
 
     if (!date) { alert('Veuillez saisir une date.'); return; }
 
-    await update(ref(db, 'matchs/' + id), { date, time, location, link, resaId });
+    await update(ref(db, 'matchs/' + id), { date, time, location, link, resaId, matchId });
 
     closeEdit();
     showToast('✅ Match modifié !');
