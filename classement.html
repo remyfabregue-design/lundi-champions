@@ -182,7 +182,10 @@
       <div><strong style="color:var(--text);">🥇 Critère principal — Ratio de victoires</strong><br>
       Le classement est avant tout déterminé par le ratio V/MJ : nombre de victoires divisé par le nombre de matchs joués. Un joueur avec 3V sur 4 matchs (75%) devance un joueur avec 5V sur 10 matchs (50%).</div>
       <div><strong style="color:var(--text);">⚖️ Départage — Points cumulés</strong><br>
-      En cas d'égalité de ratio, on compare les points : <span style="color:var(--green);">Victoire = 3 pts</span>, <span style="color:#888;">Match nul = 1 pt</span>, <span style="color:#e53935;">Défaite = 0 pt</span>.</div>
+      En cas d'égalité de ratio, on compare les points cumulés selon la formule :<br>
+      <span style="color:var(--green);">Victoire = 3 pts + 0,25 pt × écart de buts du match</span><br>
+      <span style="color:#888;">Match nul = 1 pt</span> &nbsp;·&nbsp; <span style="color:#e53935;">Défaite = 0 pt</span><br>
+      Exemple : gagner 8−3 rapporte 3 + (5 × 0,25) = <strong style="color:var(--green);">4,25 pts</strong>. Cela récompense les victoires larges sans écraser l'importance du ratio.</div>
       <div><strong style="color:var(--text);">⚽ Second départage — Différence de buts</strong><br>
       Si le ratio et les points sont identiques, c'est la différence de buts (buts marqués − buts encaissés sur l'ensemble des matchs) qui tranche.</div>
       <div style="border-top:1px solid var(--border);padding-top:10px;font-size:12px;">
@@ -251,14 +254,19 @@ function buildRanking(allMatches) {
         const name = ((p.firstName || '') + ' ' + (p.lastName || '')).trim();
         if (!name || name === '') return;
         if (!players[name]) {
-          players[name] = { name, mj: 0, v: 0, d: 0, n: 0, bf: 0, bc: 0 };
+          players[name] = { name, mj: 0, v: 0, d: 0, n: 0, bf: 0, bc: 0, diffV: 0 };
         }
         players[name].mj++;
         players[name].bf += scored;
         players[name].bc += conceded;
-        if (result === 'V') players[name].v++;
-        else if (result === 'D') players[name].d++;
-        else players[name].n++;
+        if (result === 'V') {
+          players[name].v++;
+          players[name].diffV += (scored - conceded); // écart sur matchs gagnés
+        } else if (result === 'D') {
+          players[name].d++;
+        } else {
+          players[name].n++;
+        }
       });
     };
 
@@ -269,8 +277,9 @@ function buildRanking(allMatches) {
   const ranking = Object.values(players)
     .map(p => {
       const ratio = p.mj > 0 ? p.v / p.mj : 0;
-      // Secondary: points (3V + 1N), tertiary: goal diff
-      const points = p.v * 3 + p.n;
+      // Points: 3 par victoire + 0.25 par but d'écart sur chaque match gagné + 1 par nul
+      // p.diffV = somme des écarts de buts sur les matchs gagnés uniquement
+      const points = Math.round((p.v * 3 + p.n + p.diffV * 0.25) * 10) / 10;
       const diff = p.bf - p.bc;
       return { ...p, ratio, points, diff };
     })
