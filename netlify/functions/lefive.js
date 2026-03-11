@@ -60,41 +60,54 @@ exports.handler = async (event) => {
       let teamB = [];
 
       if (getPlayers) {
-        try {
-          const playersRes = await makeRequest(
-            `https://api-front.lefive.fr/splf/v1/matchplayers?match_id=${matchId}&appId=1`,
-            { method: 'GET', headers: authHeaders }
-          );
-          const debug = event.queryStringParameters?.debug === '1';
-          if (debug) {
-            return { statusCode: 200, headers, body: JSON.stringify({
-              debug: true,
-              matchPlayersStatus: playersRes.statusCode,
-              matchPlayersRaw: playersRes.body.substring(0, 2000),
-              matchRaw: { firstTeam: match.firstTeam, secondTeam: match.secondTeam }
-            })};
-          }
-          const players = JSON.parse(playersRes.body);
-          const list = Array.isArray(players) ? players : (players.data || []);
-          const firstTeamId = match.firstTeam?.id;
-          const secondTeamId = match.secondTeam?.id;
+        const firstTeamId = match.firstTeam?.id;
+        const secondTeamId = match.secondTeam?.id;
 
-          list.forEach((p, idx) => {
-            const player = {
-              firstName: p.firstName || p.first_name || '',
-              lastName: p.lastName || p.last_name || '',
-              name: p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim(),
-            };
-            if (p.team?.id === firstTeamId || p.teamId === firstTeamId) {
-              teamA.push(player);
-            } else if (p.team?.id === secondTeamId || p.teamId === secondTeamId) {
-              teamB.push(player);
-            } else {
-              if (idx % 2 === 0) teamA.push(player);
-              else teamB.push(player);
+        const fetchTeamPlayers = async (teamId) => {
+          try {
+            // Essai 1 : /teams/{id}/players
+            let res = await makeRequest(
+              `https://api-front.lefive.fr/splf/v1/teams/${teamId}/players?appId=1`,
+              { method: 'GET', headers: authHeaders }
+            );
+            let data = JSON.parse(res.body);
+            if (res.statusCode === 200 && (Array.isArray(data) || data.data)) {
+              const list = Array.isArray(data) ? data : data.data;
+              return list.map(p => ({
+                firstName: p.firstName || p.first_name || p.name?.split(' ')[0] || '',
+                lastName: p.lastName || p.last_name || p.name?.split(' ').slice(1).join(' ') || '',
+              }));
             }
-          });
-        } catch(e) {}
+            // Essai 2 : /matchteamplayers?team_id={id}&match_id={matchId}
+            res = await makeRequest(
+              `https://api-front.lefive.fr/splf/v1/matchteamplayers?team_id=${teamId}&match_id=${matchId}&appId=1`,
+              { method: 'GET', headers: authHeaders }
+            );
+            data = JSON.parse(res.body);
+            if (res.statusCode === 200 && (Array.isArray(data) || data.data)) {
+              const list = Array.isArray(data) ? data : data.data;
+              return list.map(p => ({
+                firstName: p.firstName || p.first_name || p.name?.split(' ')[0] || p.player?.firstName || '',
+                lastName: p.lastName || p.last_name || p.name?.split(' ').slice(1).join(' ') || p.player?.lastName || '',
+              }));
+            }
+          } catch(e) {}
+          return [];
+        };
+
+        const debug = event.queryStringParameters?.debug === '1';
+        if (debug) {
+          const r1 = await makeRequest(`https://api-front.lefive.fr/splf/v1/teams/${firstTeamId}/players?appId=1`, { method: 'GET', headers: authHeaders });
+          const r2 = await makeRequest(`https://api-front.lefive.fr/splf/v1/matchteamplayers?team_id=${firstTeamId}&match_id=${matchId}&appId=1`, { method: 'GET', headers: authHeaders });
+          return { statusCode: 200, headers, body: JSON.stringify({
+            debug: true, firstTeamId, secondTeamId,
+            teamsPlayers_status: r1.statusCode, teamsPlayers_raw: r1.body.substring(0, 500),
+            matchTeamPlayers_status: r2.statusCode, matchTeamPlayers_raw: r2.body.substring(0, 500),
+          })};
+        }
+
+        if (firstTeamId) teamA = await fetchTeamPlayers(firstTeamId);
+        if (secondTeamId) teamB = await fetchTeamPlayers(secondTeamId);
       }
 
       return {
