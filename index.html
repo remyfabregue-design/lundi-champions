@@ -345,7 +345,7 @@
             <span class="soon-badge">⏳ Bientôt disponible</span>
           </div>`) : ''}
         </div>
-        ${m.link && !isPast ? `<a href="${m.link}" target="_blank" rel="noopener" class="btn-join-mobile">⚽ Rejoindre sur LeFive</a>` : ''}
+        ${!isPast ? (m.link ? `<a href="${m.link}" target="_blank" rel="noopener" class="btn-join-mobile">⚽ Rejoindre sur LeFive</a>` : `<div class="btn-join-mobile" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-weight:400;font-size:13px;font-style:italic;opacity:0.7;">⏳ Bientôt disponible</div>`) : ''}
         ${isPast && m.resaId ? `<div class="match-result" id="result-${m.id}">
           <div class="score-loading">⏳ Chargement du résultat...</div>
         </div>` : ''}
