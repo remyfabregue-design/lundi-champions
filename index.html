@@ -28,6 +28,8 @@
   h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(64px, 12vw, 100px); line-height: 0.9; letter-spacing: 2px; }
   h1 span { color: var(--green); display: block; }
   .header-sub { margin-top: 18px; color: var(--muted); font-size: 15px; font-weight: 300; }
+  .classement-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.25); color: var(--green); font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 7px 16px; border-radius: 20px; text-decoration: none; transition: background 0.2s; }
+  .classement-link:hover { background: rgba(0,230,118,0.2); }
   #loading { text-align: center; padding: 60px 0; color: var(--muted); }
   .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -169,6 +171,7 @@
     <div class="header-badge">⚽ Chaque lundi soir</div>
     <h1>LUNDI DES<span>CHAMPIONS</span></h1>
     <p class="header-sub">Retrouve tous les matchs à venir, l'heure et le lieu</p>
+    <a href="/classement" class="classement-link">🏆 Voir le classement</a>
   </header>
 
   <div id="loading">
