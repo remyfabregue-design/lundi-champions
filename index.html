@@ -397,7 +397,7 @@
 
     // Charger le résultat pour les matchs passés
     past.forEach(m => {
-      if (m.matchId || m.resaId) fetchMatchResult(m.id, m.resaId, m.matchId);
+      if (m.matchId || m.resaId) fetchMatchResult(m.id, m.resaId, m.matchId, m.teamA, m.teamB);
     });
   }
 
@@ -425,16 +425,22 @@
     }
   }
 
-  async function fetchMatchResult(matchId, resaId, fixtureId) {
+  async function fetchMatchResult(matchId, resaId, fixtureId, savedTeamA, savedTeamB) {
     const container = document.getElementById('result-' + matchId);
     if (!container) return;
     try {
       // Si on a le matchId LeFive directement, on l'utilise
       let data;
       if (fixtureId) {
-        const res = await fetch('/.netlify/functions/lefive?matchId=' + fixtureId);
+        const res = await fetch('/.netlify/functions/lefive?matchId=' + fixtureId + '&getPlayers=1');
         data = await res.json();
-        if (data.ok) { data.ended = true; data.matchId = fixtureId; }
+        if (data.ok) {
+          data.ended = true;
+          data.matchId = fixtureId;
+          // Priorité aux corrections admin sauvegardées dans Firebase
+          if (savedTeamA && savedTeamA.length > 0) data.teamA = savedTeamA;
+          if (savedTeamB && savedTeamB.length > 0) data.teamB = savedTeamB;
+        }
       } else {
         const res = await fetch('/.netlify/functions/lefive?reservationId=' + resaId);
         data = await res.json();
@@ -447,31 +453,25 @@
         const winA = data.scoreA > data.scoreB;
         const winB = data.scoreB > data.scoreA;
 
-        // Récupérer les joueurs
+        // Joueurs déjà dans la réponse
         let playersHtml = '';
-        if (data.matchId) {
-          try {
-            const pr = await fetch('/.netlify/functions/lefive?matchId=' + data.matchId + '&getPlayers=1');
-            const pd = await pr.json();
-            if (pd.ok && pd.teamA && pd.teamB) {
-              const renderTeam = (players) => players.map(p =>
-                `<div class="player-item">
-                  <div class="player-avatar">${(p.firstName || p.name || '?')[0].toUpperCase()}</div>
-                  <span>${p.firstName || ''} ${(p.lastName || p.name || '').split(' ')[0]}</span>
-                </div>`
-              ).join('');
-              playersHtml = `<div class="teams-grid">
-                <div class="team-col">
-                  <div class="team-col-title">⚽ Équipe A</div>
-                  ${renderTeam(pd.teamA)}
-                </div>
-                <div class="team-col">
-                  <div class="team-col-title">⚽ Équipe B</div>
-                  ${renderTeam(pd.teamB)}
-                </div>
-              </div>`;
-            }
-          } catch(e) {}
+        if (data.teamA && data.teamB && (data.teamA.length > 0 || data.teamB.length > 0)) {
+          const renderTeam = (players) => players.map(p =>
+            `<div class="player-item">
+              <div class="player-avatar">${(p.firstName || p.name || '?')[0].toUpperCase()}</div>
+              <span>${p.firstName || ''} ${(p.lastName || p.name || '').split(' ')[0]}</span>
+            </div>`
+          ).join('');
+          playersHtml = `<div class="teams-grid">
+            <div class="team-col">
+              <div class="team-col-title">⚽ Équipe A</div>
+              ${renderTeam(data.teamA)}
+            </div>
+            <div class="team-col">
+              <div class="team-col-title">⚽ Équipe B</div>
+              ${renderTeam(data.teamB)}
+            </div>
+          </div>`;
         }
 
         container.innerHTML = `
@@ -715,7 +715,8 @@
           <strong>${label}${m.time ? ' · ' + m.time.substring(0,5) : ''}</strong>
           <span>${m.location || ''}${m.resaId ? ' · #' + m.resaId : ''}</span>
         </div>
-        <div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+          ${m.matchId ? `<button class="btn-edit" style="background:rgba(0,230,118,0.1);border-color:rgba(0,230,118,0.3);" onclick="openTeams('${m.id}')">🔀 Équipes</button>` : ''}
           <button class="btn-edit" onclick="openEdit('${m.id}')">✏️ Modifier</button>
           <button class="btn-delete" onclick="deleteMatch('${m.id}')">Supprimer</button>
         </div>
@@ -758,6 +759,152 @@
     showToast('✅ Match modifié !');
   };
 
+  /* ── Teams drag & drop modal ── */
+  .teams-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; align-items:center; justify-content:center; padding:20px; }
+  .teams-modal-overlay.visible { display:flex; }
+  .teams-modal { background:var(--card); border:1px solid var(--border); border-radius:20px; width:100%; max-width:600px; max-height:90vh; overflow-y:auto; padding:28px; }
+  .teams-modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+  .teams-modal-title { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:1px; }
+  .teams-modal-subtitle { font-size:12px; color:var(--muted); margin-top:2px; }
+  .teams-dnd-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .team-drop-zone { background:rgba(255,255,255,0.03); border:2px dashed var(--border); border-radius:14px; padding:14px; min-height:160px; transition:border-color 0.2s, background 0.2s; }
+  .team-drop-zone.drag-over { border-color:var(--green); background:rgba(0,230,118,0.05); }
+  .team-drop-title { font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  .team-drop-title span { background:rgba(0,230,118,0.15); border:1px solid rgba(0,230,118,0.3); color:var(--green); border-radius:20px; padding:2px 8px; font-size:10px; }
+  .player-chip { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.06); border:1px solid var(--border); border-radius:10px; padding:9px 12px; margin-bottom:8px; cursor:grab; user-select:none; transition:transform 0.15s, border-color 0.15s, opacity 0.15s; }
+  .player-chip:hover { border-color:rgba(0,230,118,0.4); transform:translateX(2px); }
+  .player-chip.dragging { opacity:0.4; cursor:grabbing; }
+  .player-chip-avatar { width:28px; height:28px; border-radius:50%; background:rgba(0,230,118,0.15); border:1px solid rgba(0,230,118,0.25); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--green); flex-shrink:0; }
+  .player-chip-name { font-size:13px; font-weight:500; flex:1; }
+  .player-chip-drag { color:var(--border); font-size:14px; }
+  .teams-modal-actions { display:flex; gap:10px; margin-top:20px; justify-content:flex-end; }
+  .btn-teams-save { background:var(--green); color:#000; border:none; border-radius:10px; padding:10px 24px; font-size:14px; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
+  .btn-teams-save:hover { opacity:0.85; }
+  .btn-teams-cancel { background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:10px; padding:10px 20px; font-size:14px; cursor:pointer; }
+  .teams-loading { text-align:center; color:var(--muted); font-size:13px; padding:40px 0; font-style:italic; }
+
+    // ── Teams drag & drop ──
+  let teamsMatchId = null;      // Firebase match id
+  let teamsLeFiveId = null;     // LeFive fixture id
+  let teamsData = { A: [], B: [] };
+  let dragSrc = null;
+
+  window.openTeams = async function(id) {
+    const m = allMatches[id];
+    if (!m || !m.matchId) return;
+    teamsMatchId = id;
+    teamsLeFiveId = m.matchId;
+
+    // Si des corrections existent déjà dans Firebase, on les charge
+    teamsData = { A: m.teamA || [], B: m.teamB || [] };
+
+    document.getElementById('teams-modal').classList.add('visible');
+    const content = document.getElementById('teams-dnd-content');
+
+    if (teamsData.A.length === 0 && teamsData.B.length === 0) {
+      content.innerHTML = '<div class="teams-loading">⏳ Chargement depuis LeFive...</div>';
+      try {
+        const res = await fetch('/.netlify/functions/lefive?matchId=' + teamsLeFiveId + '&getPlayers=1');
+        const data = await res.json();
+        if (data.ok) {
+          teamsData.A = data.teamA || [];
+          teamsData.B = data.teamB || [];
+        }
+      } catch(e) {}
+    }
+
+    renderTeamsDnD();
+  };
+
+  window.closeTeams = function() {
+    document.getElementById('teams-modal').classList.remove('visible');
+  };
+
+  function renderTeamsDnD() {
+    const content = document.getElementById('teams-dnd-content');
+
+    const renderChips = (players, team) => players.map((p, i) => {
+      const name = (p.firstName || '') + ' ' + (p.lastName || '');
+      const initials = ((p.firstName || '?')[0] + (p.lastName || '?')[0]).toUpperCase();
+      return `<div class="player-chip" draggable="true"
+        data-team="${team}" data-index="${i}"
+        ondragstart="onDragStart(event)"
+        ondragend="onDragEnd(event)">
+        <div class="player-chip-avatar">${initials}</div>
+        <div class="player-chip-name">${name.trim() || 'Joueur ?'}</div>
+        <div class="player-chip-drag">⠿</div>
+      </div>`;
+    }).join('');
+
+    content.innerHTML = `<div class="teams-dnd-grid">
+      <div class="team-drop-zone" id="zone-A"
+        ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'A')">
+        <div class="team-drop-title">⚽ Équipe A <span>${teamsData.A.length}</span></div>
+        ${renderChips(teamsData.A, 'A')}
+      </div>
+      <div class="team-drop-zone" id="zone-B"
+        ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'B')">
+        <div class="team-drop-title">⚽ Équipe B <span>${teamsData.B.length}</span></div>
+        ${renderChips(teamsData.B, 'B')}
+      </div>
+    </div>`;
+  }
+
+  window.onDragStart = function(e) {
+    dragSrc = e.currentTarget;
+    dragSrc.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', JSON.stringify({
+      team: dragSrc.dataset.team,
+      index: parseInt(dragSrc.dataset.index)
+    }));
+  };
+
+  window.onDragEnd = function(e) {
+    e.currentTarget.classList.remove('dragging');
+    document.querySelectorAll('.team-drop-zone').forEach(z => z.classList.remove('drag-over'));
+  };
+
+  window.onDragOver = function(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('drag-over');
+  };
+
+  window.onDragLeave = function(e) {
+    e.currentTarget.classList.remove('drag-over');
+  };
+
+  window.onDrop = function(e, targetTeam) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    const { team: srcTeam, index: srcIdx } = JSON.parse(e.dataTransfer.getData('text/plain'));
+    if (srcTeam === targetTeam) return; // même zone → rien
+
+    const player = teamsData[srcTeam][srcIdx];
+    teamsData[srcTeam].splice(srcIdx, 1);
+    teamsData[targetTeam].push(player);
+
+    renderTeamsDnD();
+  };
+
+  window.saveTeams = async function() {
+    if (!teamsMatchId) return;
+    const btn = document.querySelector('.btn-teams-save');
+    btn.textContent = '⏳ Sauvegarde...';
+    btn.disabled = true;
+
+    await update(ref(db, 'matchs/' + teamsMatchId), {
+      teamA: teamsData.A,
+      teamB: teamsData.B,
+    });
+
+    btn.textContent = '💾 Sauvegarder';
+    btn.disabled = false;
+    closeTeams();
+    showToast('✅ Équipes sauvegardées !');
+  };
+
   function showToast(msg) {
     const t = document.createElement('div');
     t.className = 'toast';
@@ -766,5 +913,25 @@
     setTimeout(() => t.remove(), 2500);
   }
 </script>
+<!-- Teams drag & drop modal -->
+<div class="teams-modal-overlay" id="teams-modal">
+  <div class="teams-modal">
+    <div class="teams-modal-header">
+      <div>
+        <div class="teams-modal-title">🔀 Équipes</div>
+        <div class="teams-modal-subtitle">Glisse les joueurs d'une équipe à l'autre</div>
+      </div>
+      <button class="btn-teams-cancel" onclick="closeTeams()" style="padding:8px 14px;font-size:18px;border:none;">✕</button>
+    </div>
+    <div id="teams-dnd-content">
+      <div class="teams-loading">⏳ Chargement des joueurs...</div>
+    </div>
+    <div class="teams-modal-actions">
+      <button class="btn-teams-cancel" onclick="closeTeams()">Annuler</button>
+      <button class="btn-teams-save" onclick="saveTeams()">💾 Sauvegarder</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
