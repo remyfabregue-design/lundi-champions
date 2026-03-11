@@ -20,50 +20,29 @@ function makeRequest(url, options = {}) {
   });
 }
 
-async function getToken(email, password) {
-  const stored = process.env.LEFIVE_TOKEN;
-  if (stored) return stored;
-  const body = new URLSearchParams({ email, password }).toString();
-  const loginRes = await makeRequest('https://api2-front.lefive.fr/login/client?appId=1&isChannelWeb=true', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Content-Length': Buffer.byteLength(body),
-      'Origin': 'https://lefive.fr',
-    },
-    body,
-  });
-  const data = JSON.parse(loginRes.body);
-  return data.token || null;
-}
-
 exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json'
   };
 
-  const email = process.env.LEFIVE_EMAIL;
-  const password = process.env.LEFIVE_PASSWORD;
+  const token = process.env.LEFIVE_TOKEN;
+  const userId = process.env.LEFIVE_USER_ID;
   const reservationId = event.queryStringParameters?.reservationId;
   const matchId = event.queryStringParameters?.matchId;
   const getPlayers = event.queryStringParameters?.getPlayers === '1';
 
-  if (!email || !password) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Identifiants manquants', ok: false }) };
+  if (!token || !userId) {
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Token manquant', ok: false }) };
   }
 
-  try {
-    const token = await getToken(email, password);
-    if (!token) {
-      return { statusCode: 401, headers, body: JSON.stringify({ error: 'Token invalide', ok: false }) };
-    }
+  const authHeaders = {
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/json',
+    'Origin': 'https://lefive.fr',
+  };
 
-    const authHeaders = {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/json',
-      'Origin': 'https://lefive.fr',
-    };
+  try {
 
     // ── MODE : score + joueurs par matchId ──
     if (matchId) {
@@ -81,7 +60,6 @@ exports.handler = async (event) => {
       let teamB = [];
 
       if (getPlayers) {
-        // Récupérer les joueurs
         try {
           const playersRes = await makeRequest(
             `https://api-front.lefive.fr/splf/v1/matchplayers?match_id=${matchId}&appId=1`,
@@ -89,12 +67,10 @@ exports.handler = async (event) => {
           );
           const players = JSON.parse(playersRes.body);
           const list = Array.isArray(players) ? players : (players.data || []);
-
-          // firstTeam id vs secondTeam id
           const firstTeamId = match.firstTeam?.id;
           const secondTeamId = match.secondTeam?.id;
 
-          list.forEach(p => {
+          list.forEach((p, idx) => {
             const player = {
               firstName: p.firstName || p.first_name || '',
               lastName: p.lastName || p.last_name || '',
@@ -105,8 +81,7 @@ exports.handler = async (event) => {
             } else if (p.team?.id === secondTeamId || p.teamId === secondTeamId) {
               teamB.push(player);
             } else {
-              // Fallback: répartir par index
-              if (list.indexOf(p) % 2 === 0) teamA.push(player);
+              if (idx % 2 === 0) teamA.push(player);
               else teamB.push(player);
             }
           });
@@ -134,7 +109,6 @@ exports.handler = async (event) => {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'reservationId ou matchId requis', ok: false }) };
     }
 
-    const userId = process.env.LEFIVE_USER_ID;
     const now = new Date();
     const from = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString();
     const to = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000).toISOString();
@@ -164,7 +138,6 @@ exports.handler = async (event) => {
           { method: 'GET', headers: authHeaders }
         );
         const match = JSON.parse(matchRes.body);
-
         if (match.id && match.ended) {
           return {
             statusCode: 200, headers,
