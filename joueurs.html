@@ -165,8 +165,12 @@
       <div class="auth-error" id="auth-error"></div>
     </div>
 
-    <!-- Add player (admin only) -->
+    <!-- Admin tools -->
     <div class="add-player-box" id="add-player-box">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+        <button class="btn-reset-note" onclick="cleanDuplicates()" style="font-size:12px;padding:6px 12px;">🧹 Nettoyer les doublons</button>
+      </div>
+    <!-- Add player (admin only) -->
       <h3>➕ Ajouter un joueur manuellement</h3>
       <div class="add-player-row">
         <div class="form-group-sm">
@@ -229,6 +233,30 @@
   </div>
 </div>
 
+<div class="container" style="margin-bottom:48px;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px 28px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;margin-bottom:16px;color:var(--green);">📐 Comment est calculée la note ?</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.8;display:flex;flex-direction:column;gap:10px;">
+      <div><strong style="color:var(--text);">⭐ Note de départ</strong><br>
+      Chaque joueur reçoit une note initiale entre 1 et 5 attribuée manuellement par l'admin, reflétant son niveau estimé avant tout match.</div>
+      <div><strong style="color:var(--text);">📈 Victoire</strong><br>
+      <span style="color:var(--green);">Écart ≤ 5 buts → +10% de la note actuelle</span><br>
+      <span style="color:var(--green);">Écart &gt; 5 buts → +20% de la note actuelle</span><br>
+      Exemple : note de 3,0 après une victoire serrée → 3,0 × 1,10 = <strong style="color:var(--green);">3,3</strong></div>
+      <div><strong style="color:var(--text);">📉 Défaite</strong><br>
+      <span style="color:#e53935;">Écart ≤ 5 buts → −10% de la note actuelle</span><br>
+      <span style="color:#e53935;">Écart &gt; 5 buts → −20% de la note actuelle</span><br>
+      Exemple : note de 3,0 après une large défaite → 3,0 × 0,80 = <strong style="color:#e53935;">2,4</strong></div>
+      <div><strong style="color:var(--text);">➖ Match nul</strong><br>
+      La note reste inchangée.</div>
+      <div><strong style="color:var(--text);">🔒 Plafond</strong><br>
+      La note ne peut jamais dépasser <strong style="color:var(--green);">5,0</strong> ni descendre en dessous de <strong style="color:#e53935;">1,0</strong>.</div>
+      <div style="border-top:1px solid var(--border);padding-top:10px;font-size:12px;">
+      L'admin peut à tout moment remplacer la note calculée par une note manuelle (indiquée par ✎), ou revenir au calcul automatique. La note évolue match après match dans l'ordre chronologique.</div>
+    </div>
+  </div>
+</div>
+
 <footer><p>Fait avec ❤️ pour les <a href="/">Warriors du Lundi</a></p></footer>
 
 <script type="module">
@@ -266,7 +294,10 @@ onValue(ref(db, 'matchs'), snap => {
 onValue(ref(db, 'joueurs'), snap => {
   allPlayers = snap.val() || {};
   playersLoaded = true;
-  if (matchesLoaded) render();
+  if (matchesLoaded) {
+    if (!syncDone) syncPlayersFromMatches(); // once only
+    render();
+  }
 });
 
 // ── Compute note for a player based on matches ──
@@ -381,9 +412,6 @@ function render() {
   document.getElementById('loading').style.display = 'none';
   document.getElementById('content').style.display = 'block';
 
-  // Also sync players from matches (auto-detect players from teamA/teamB)
-  syncPlayersFromMatches();
-
   const playerList = Object.entries(allPlayers).map(([id, p]) => {
     const computed = computeNote(p);
     const mj = countMatchesPlayed(p);
@@ -422,24 +450,38 @@ function render() {
 }
 
 // Auto-sync: add players found in match teams but not yet in /joueurs
+// Called ONCE after both data sources are loaded
+let syncDone = false;
 async function syncPlayersFromMatches() {
-  const existing = new Set(
-    Object.values(allPlayers).map(p => (p.firstName + ' ' + p.lastName).trim().toLowerCase())
-  );
-  const toAdd = {};
+  if (syncDone) return;
+  syncDone = true;
 
+  // Build set of existing players (normalize: lowercase, trim, collapse spaces)
+  const normalize = str => (str || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const existing = new Set(
+    Object.values(allPlayers).map(p => normalize((p.firstName || '') + ' ' + (p.lastName || '')))
+  );
+
+  const toAdd = {};
   Object.values(allMatches).forEach(m => {
     const teamA = m.teamA ? Object.values(m.teamA) : [];
     const teamB = m.teamB ? Object.values(m.teamB) : [];
     [...teamA, ...teamB].forEach(p => {
-      const name = ((p.firstName || '') + ' ' + (p.lastName || '')).trim();
-      if (!name || existing.has(name.toLowerCase())) return;
-      if (toAdd[name.toLowerCase()]) return;
-      toAdd[name.toLowerCase()] = { firstName: p.firstName || '', lastName: p.lastName || '', noteBase: 3 };
+      const firstName = (p.firstName || '').trim();
+      const lastName = (p.lastName || '').trim();
+      const fullName = normalize(firstName + ' ' + lastName);
+      if (!fullName || fullName === ' ' || fullName === '') return;
+      if (existing.has(fullName)) return;
+      if (toAdd[fullName]) return;
+      toAdd[fullName] = { firstName, lastName, noteBase: 3 };
+      existing.add(fullName); // prevent duplicates within same batch
     });
   });
 
-  for (const [, player] of Object.entries(toAdd)) {
+  const toAddList = Object.values(toAdd);
+  if (toAddList.length === 0) return;
+
+  for (const player of toAddList) {
     const newRef = push(ref(db, 'joueurs'));
     await set(newRef, player);
   }
@@ -568,6 +610,41 @@ window.resetManualNote = async function() {
   await update(ref(db, 'joueurs/' + currentModalPlayer), { noteManuelle: null });
   closeModal();
   showToast('↩ Note réinitialisée');
+};
+
+// Clean duplicate players from Firebase
+window.cleanDuplicates = async function() {
+  if (!confirm('Supprimer les joueurs en double ? (garde un seul exemplaire par nom)')) return;
+  const normalize = str => (str || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const seen = {};
+  const toDelete = [];
+
+  Object.entries(allPlayers).forEach(([id, p]) => {
+    const key = normalize((p.firstName || '') + ' ' + (p.lastName || ''));
+    if (!key || key === ' ') { toDelete.push(id); return; }
+    if (seen[key]) {
+      // Keep the one with most data (noteBase != 3 or noteManuelle set)
+      const existing = allPlayers[seen[key]];
+      const existingScore = (existing.noteBase && existing.noteBase !== 3 ? 1 : 0) + (existing.noteManuelle ? 2 : 0);
+      const newScore = (p.noteBase && p.noteBase !== 3 ? 1 : 0) + (p.noteManuelle ? 2 : 0);
+      if (newScore > existingScore) {
+        toDelete.push(seen[key]);
+        seen[key] = id;
+      } else {
+        toDelete.push(id);
+      }
+    } else {
+      seen[key] = id;
+    }
+  });
+
+  if (toDelete.length === 0) { showToast('✅ Aucun doublon trouvé'); return; }
+
+  const { remove, ref: fbRef } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js");
+  for (const id of toDelete) {
+    await remove(ref(db, 'joueurs/' + id));
+  }
+  showToast('🧹 ' + toDelete.length + ' doublon(s) supprimé(s) !');
 };
 
 function showToast(msg) {
