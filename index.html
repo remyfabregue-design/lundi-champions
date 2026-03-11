@@ -135,6 +135,31 @@
     .btn-join-mobile { display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--green); color: var(--black); font-weight: 700; font-size: 15px; padding: 14px 20px; margin: 0 16px 16px; border-radius: 10px; text-decoration: none; transition: background 0.2s; }
     .btn-join-mobile:active { background: var(--green-dark); }
   }
+  /* ── Teams drag & drop modal ── */
+  .teams-modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center; padding:20px; }
+  .teams-modal-overlay.visible { display:flex !important; }
+  .teams-modal { background:var(--card); border:1px solid var(--border); border-radius:20px; width:100%; max-width:600px; max-height:90vh; overflow-y:auto; padding:28px; }
+  .teams-modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+  .teams-modal-title { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:1px; }
+  .teams-modal-subtitle { font-size:12px; color:var(--muted); margin-top:2px; }
+  .teams-dnd-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .team-drop-zone { background:rgba(255,255,255,0.03); border:2px dashed var(--border); border-radius:14px; padding:14px; min-height:160px; transition:border-color 0.2s, background 0.2s; }
+  .team-drop-zone.drag-over { border-color:var(--green); background:rgba(0,230,118,0.05); }
+  .team-drop-title { font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  .team-drop-title span { background:rgba(0,230,118,0.15); border:1px solid rgba(0,230,118,0.3); color:var(--green); border-radius:20px; padding:2px 8px; font-size:10px; }
+  .player-chip { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.06); border:1px solid var(--border); border-radius:10px; padding:9px 12px; margin-bottom:8px; cursor:grab; user-select:none; transition:transform 0.15s, border-color 0.15s, opacity 0.15s; }
+  .player-chip:hover { border-color:rgba(0,230,118,0.4); transform:translateX(2px); }
+  .player-chip.dragging { opacity:0.4; cursor:grabbing; }
+  .player-chip-avatar { width:28px; height:28px; border-radius:50%; background:rgba(0,230,118,0.15); border:1px solid rgba(0,230,118,0.25); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--green); flex-shrink:0; }
+  .player-chip-name { font-size:13px; font-weight:500; flex:1; }
+  .player-chip-drag { color:var(--border); font-size:14px; }
+  .teams-modal-actions { display:flex; gap:10px; margin-top:20px; justify-content:flex-end; }
+  .btn-teams-save { background:var(--green); color:#000; border:none; border-radius:10px; padding:10px 24px; font-size:14px; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
+  .btn-teams-save:hover { opacity:0.85; }
+  .btn-teams-cancel { background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:10px; padding:10px 20px; font-size:14px; cursor:pointer; }
+  .teams-loading { text-align:center; color:var(--muted); font-size:13px; padding:40px 0; font-style:italic; }
+
+  
 </style>
 </head>
 <body>
@@ -759,30 +784,6 @@
     showToast('✅ Match modifié !');
   };
 
-  /* ── Teams drag & drop modal ── */
-  .teams-modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center; padding:20px; }
-  .teams-modal-overlay.visible { display:flex !important; }
-  .teams-modal { background:var(--card); border:1px solid var(--border); border-radius:20px; width:100%; max-width:600px; max-height:90vh; overflow-y:auto; padding:28px; }
-  .teams-modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
-  .teams-modal-title { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:1px; }
-  .teams-modal-subtitle { font-size:12px; color:var(--muted); margin-top:2px; }
-  .teams-dnd-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-  .team-drop-zone { background:rgba(255,255,255,0.03); border:2px dashed var(--border); border-radius:14px; padding:14px; min-height:160px; transition:border-color 0.2s, background 0.2s; }
-  .team-drop-zone.drag-over { border-color:var(--green); background:rgba(0,230,118,0.05); }
-  .team-drop-title { font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; display:flex; align-items:center; gap:6px; }
-  .team-drop-title span { background:rgba(0,230,118,0.15); border:1px solid rgba(0,230,118,0.3); color:var(--green); border-radius:20px; padding:2px 8px; font-size:10px; }
-  .player-chip { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.06); border:1px solid var(--border); border-radius:10px; padding:9px 12px; margin-bottom:8px; cursor:grab; user-select:none; transition:transform 0.15s, border-color 0.15s, opacity 0.15s; }
-  .player-chip:hover { border-color:rgba(0,230,118,0.4); transform:translateX(2px); }
-  .player-chip.dragging { opacity:0.4; cursor:grabbing; }
-  .player-chip-avatar { width:28px; height:28px; border-radius:50%; background:rgba(0,230,118,0.15); border:1px solid rgba(0,230,118,0.25); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--green); flex-shrink:0; }
-  .player-chip-name { font-size:13px; font-weight:500; flex:1; }
-  .player-chip-drag { color:var(--border); font-size:14px; }
-  .teams-modal-actions { display:flex; gap:10px; margin-top:20px; justify-content:flex-end; }
-  .btn-teams-save { background:var(--green); color:#000; border:none; border-radius:10px; padding:10px 24px; font-size:14px; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
-  .btn-teams-save:hover { opacity:0.85; }
-  .btn-teams-cancel { background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:10px; padding:10px 20px; font-size:14px; cursor:pointer; }
-  .teams-loading { text-align:center; color:var(--muted); font-size:13px; padding:40px 0; font-style:italic; }
-
     // ── Teams drag & drop ──
   let teamsMatchId = null;      // Firebase match id
   let teamsLeFiveId = null;     // LeFive fixture id
@@ -797,7 +798,7 @@
 
     // Afficher la modale immédiatement
     const overlay = document.getElementById('teams-modal');
-    overlay.style.display = 'flex';
+    overlay.style.cssText = 'display:flex;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;padding:20px;overflow-y:auto;';
     const content = document.getElementById('teams-dnd-content');
     content.innerHTML = '<div class="teams-loading">⏳ Chargement depuis LeFive...</div>';
 
@@ -826,7 +827,6 @@
   window.closeTeams = function() {
     const overlay = document.getElementById('teams-modal');
     overlay.style.display = 'none';
-    overlay.classList.remove('visible');
   };
 
   function renderTeamsDnD() {
@@ -923,7 +923,7 @@
   }
 </script>
 <!-- Teams drag & drop modal -->
-<div class="teams-modal-overlay" id="teams-modal">
+<div id="teams-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;padding:20px;overflow-y:auto;">
   <div class="teams-modal">
     <div class="teams-modal-header">
       <div>
