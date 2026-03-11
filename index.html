@@ -106,6 +106,21 @@
   .match-map-placeholder { height: 160px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; background: rgba(255,255,255,0.02); cursor: pointer; transition: background 0.2s; }
   .match-map-placeholder:hover { background: rgba(0,230,118,0.03); color: var(--green); }
   .soon-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); opacity: 0.6; font-style: italic; padding: 3px 0; }
+  .match-result { border-top: 1px solid var(--border); padding: 16px 20px; }
+  .score-board { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 14px; }
+  .score-team { flex: 1; text-align: center; }
+  .score-team-name { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .score-value { font-family: 'Bebas Neue', sans-serif; font-size: 42px; line-height: 1; color: var(--text); }
+  .score-value.winner { color: var(--green); }
+  .score-sep { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--border); padding: 0 4px; }
+  .score-loading { text-align: center; color: var(--muted); font-size: 13px; font-style: italic; padding: 8px 0; }
+  .teams-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .team-col { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .team-col-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .player-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); padding: 3px 0; }
+  .player-avatar { width: 20px; height: 20px; border-radius: 50%; background: rgba(0,230,118,0.15); border: 1px solid rgba(0,230,118,0.2); display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
+  .result-link { display: block; text-align: center; margin-top: 12px; font-size: 11px; color: var(--muted); text-decoration: none; }
+  .result-link:hover { color: var(--green); }
   .past-section { margin-bottom: 40px; }
   .past-toggle { display: flex; align-items: center; gap: 10px; background: none; border: 1px solid var(--border); color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 10px 18px; border-radius: 10px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; width: 100%; }
   .past-toggle:hover { border-color: var(--muted); color: var(--text); }
@@ -323,6 +338,9 @@
           </div>`) : ''}
         </div>
         ${m.link && !isPast ? `<a href="${m.link}" target="_blank" rel="noopener" class="btn-join-mobile">⚽ Rejoindre sur LeFive</a>` : ''}
+        ${isPast && m.resaId ? `<div class="match-result" id="result-${m.id}">
+          <div class="score-loading">⏳ Chargement du résultat...</div>
+        </div>` : ''}
         ${!isPast ? `<div class="card-actions">
           ${m.location ? `<button class="btn-action" onclick="toggleMap(this, '${m.location.replace(/'/g, "\'")}')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -368,6 +386,11 @@
     upcoming.forEach(m => {
       if (m.resaId) fetchPlayerCount(m.id, m.resaId);
     });
+
+    // Charger le résultat pour les matchs passés
+    past.forEach(m => {
+      if (m.resaId) fetchMatchResult(m.id, m.resaId);
+    });
   }
 
   window.togglePast = function(btn) {
@@ -391,6 +414,71 @@
       }
     } catch(e) {
       badge.style.display = 'none';
+    }
+  }
+
+  async function fetchMatchResult(matchId, resaId) {
+    const container = document.getElementById('result-' + matchId);
+    if (!container) return;
+    try {
+      const res = await fetch('/.netlify/functions/lefive?reservationId=' + resaId);
+      const data = await res.json();
+
+      if (!data.ok) { container.style.display = 'none'; return; }
+
+      // Score disponible
+      if (data.ended && data.scoreA !== undefined) {
+        const winA = data.scoreA > data.scoreB;
+        const winB = data.scoreB > data.scoreA;
+
+        // Récupérer les joueurs
+        let playersHtml = '';
+        if (data.matchId) {
+          try {
+            const pr = await fetch('/.netlify/functions/lefive?matchId=' + data.matchId + '&getPlayers=1');
+            const pd = await pr.json();
+            if (pd.ok && pd.teamA && pd.teamB) {
+              const renderTeam = (players) => players.map(p =>
+                `<div class="player-item">
+                  <div class="player-avatar">${(p.firstName || p.name || '?')[0].toUpperCase()}</div>
+                  <span>${p.firstName || ''} ${(p.lastName || p.name || '').split(' ')[0]}</span>
+                </div>`
+              ).join('');
+              playersHtml = `<div class="teams-grid">
+                <div class="team-col">
+                  <div class="team-col-title">⚽ Équipe A</div>
+                  ${renderTeam(pd.teamA)}
+                </div>
+                <div class="team-col">
+                  <div class="team-col-title">⚽ Équipe B</div>
+                  ${renderTeam(pd.teamB)}
+                </div>
+              </div>`;
+            }
+          } catch(e) {}
+        }
+
+        container.innerHTML = `
+          <div class="score-board">
+            <div class="score-team">
+              <div class="score-team-name">Équipe A</div>
+              <div class="score-value ${winA ? 'winner' : ''}">${data.scoreA}</div>
+            </div>
+            <div class="score-sep">—</div>
+            <div class="score-team">
+              <div class="score-team-name">Équipe B</div>
+              <div class="score-value ${winB ? 'winner' : ''}">${data.scoreB}</div>
+            </div>
+          </div>
+          ${playersHtml}
+          ${data.matchId ? `<a class="result-link" href="https://lefive.fr/paris_18/matchs/detail/${data.matchId}" target="_blank" rel="noopener">Voir le match complet sur LeFive →</a>` : ''}
+        `;
+      } else {
+        // Pas encore de score
+        container.style.display = 'none';
+      }
+    } catch(e) {
+      container.style.display = 'none';
     }
   }
 
