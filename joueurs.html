@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profil des joueurs ⚽ Lundi des Champions</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00E676; --green-dark: #00C853;
+    --black: #0A0A0A; --card: #1A1A1A;
+    --border: #2A2A2A; --text: #F0F0F0; --muted: #888;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--black); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; overflow-x:hidden; }
+  body::before { content:''; position:fixed; inset:0; background-image:radial-gradient(circle at 20% 20%,rgba(0,230,118,0.06) 0%,transparent 50%),radial-gradient(circle at 80% 80%,rgba(0,230,118,0.04) 0%,transparent 50%); pointer-events:none; z-index:0; }
+  .container { max-width:800px; margin:0 auto; padding:0 20px; position:relative; z-index:1; }
+
+  header { padding:60px 0 40px; text-align:center; border-bottom:1px solid var(--border); margin-bottom:40px; }
+  .header-badge { display:inline-block; background:rgba(0,230,118,0.12); border:1px solid rgba(0,230,118,0.3); color:var(--green); font-size:11px; font-weight:600; letter-spacing:2px; text-transform:uppercase; padding:6px 16px; border-radius:20px; margin-bottom:24px; }
+  h1 { font-family:'Bebas Neue',sans-serif; font-size:clamp(56px,10vw,88px); line-height:0.9; letter-spacing:2px; }
+  h1 span { color:var(--green); display:block; }
+  .header-sub { margin-top:18px; color:var(--muted); font-size:15px; font-weight:300; }
+  .back-link { display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:13px; text-decoration:none; margin-bottom:32px; transition:color 0.2s; }
+  .back-link:hover { color:var(--green); }
+
+  #loading { text-align:center; padding:60px 0; color:var(--muted); }
+  .spinner { width:32px; height:32px; border:3px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 16px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes slideIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+
+  /* Admin bar */
+  .admin-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:10px; }
+  .admin-bar-left { font-size:13px; color:var(--muted); }
+  .btn-admin-toggle { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--muted); font-size:12px; font-weight:600; letter-spacing:1px; text-transform:uppercase; padding:7px 14px; border-radius:10px; cursor:pointer; transition:all 0.2s; font-family:'DM Sans',sans-serif; }
+  .btn-admin-toggle:hover { border-color:var(--green); color:var(--green); }
+  .btn-admin-toggle.active { background:rgba(0,230,118,0.1); border-color:rgba(0,230,118,0.4); color:var(--green); }
+
+  /* Auth */
+  .auth-box { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:20px; display:none; }
+  .auth-box.visible { display:block; }
+  .auth-box input { background:#111; border:1px solid var(--border); color:var(--text); border-radius:8px; padding:9px 14px; font-size:14px; font-family:'DM Sans',sans-serif; width:200px; outline:none; }
+  .auth-box input:focus { border-color:var(--green); }
+  .btn-auth { background:var(--green); color:#000; border:none; border-radius:8px; padding:9px 18px; font-size:13px; font-weight:700; cursor:pointer; margin-left:8px; font-family:'DM Sans',sans-serif; }
+  .auth-error { color:#e53935; font-size:12px; margin-top:8px; }
+
+  /* Table */
+  .table-wrap { margin-bottom:48px; }
+  .ranking-table { width:100%; border-collapse:collapse; }
+  .ranking-table thead tr { border-bottom:1px solid var(--border); }
+  .ranking-table th { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); padding:10px 14px; text-align:left; }
+  .ranking-table th.center { text-align:center; }
+  .ranking-table tbody tr { border-bottom:1px solid rgba(255,255,255,0.04); transition:background 0.15s; animation:slideIn 0.4s ease both; cursor:pointer; }
+  .ranking-table tbody tr:hover { background:rgba(255,255,255,0.03); }
+
+  .ranking-table td { padding:14px; font-size:14px; }
+  .ranking-table td.center { text-align:center; }
+
+  .player-cell { display:flex; align-items:center; gap:10px; }
+  .player-init { width:36px; height:36px; border-radius:50%; background:rgba(0,230,118,0.1); border:1px solid rgba(0,230,118,0.2); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:var(--green); flex-shrink:0; }
+  .player-name-wrap { display:flex; flex-direction:column; }
+  .player-name { font-weight:600; }
+  .player-source { font-size:11px; color:var(--muted); margin-top:1px; }
+
+  /* Star rating display */
+  .stars { display:inline-flex; gap:2px; }
+  .star { font-size:16px; line-height:1; }
+  .star.full { color:var(--green); }
+  .star.half { color:var(--green); opacity:0.5; }
+  .star.empty { color:var(--border); }
+  .note-val { font-family:'Bebas Neue',sans-serif; font-size:20px; color:var(--green); margin-left:6px; vertical-align:middle; }
+  .note-manual { font-size:10px; color:#f59e0b; margin-left:4px; vertical-align:middle; }
+
+  /* Admin edit cell */
+  .admin-edit-btn { background:none; border:1px solid var(--border); border-radius:6px; color:var(--muted); font-size:11px; padding:4px 8px; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s; white-space:nowrap; }
+  .admin-edit-btn:hover { border-color:var(--green); color:var(--green); }
+
+  /* Player modal */
+  .modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center; padding:20px; overflow-y:auto; }
+  .modal { background:var(--card); border:1px solid var(--border); border-radius:20px; width:100%; max-width:520px; padding:28px; }
+  .modal-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; }
+  .modal-title { font-family:'Bebas Neue',sans-serif; font-size:24px; letter-spacing:1px; }
+  .modal-close { background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; padding:0; line-height:1; }
+
+  /* Score history chart */
+  .history-title { font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+  .history-list { display:flex; flex-direction:column; gap:8px; margin-bottom:20px; }
+  .history-item { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; padding:10px 14px; }
+  .history-date { font-size:12px; color:var(--muted); min-width:80px; }
+  .history-result { font-size:12px; font-weight:600; min-width:24px; }
+  .history-result.V { color:var(--green); }
+  .history-result.D { color:#e53935; }
+  .history-result.N { color:var(--muted); }
+  .history-note-before { font-size:12px; color:var(--muted); }
+  .history-arrow { font-size:12px; color:var(--border); }
+  .history-note-after { font-size:13px; font-weight:600; color:var(--green); }
+  .history-change { font-size:11px; padding:2px 6px; border-radius:6px; }
+  .history-change.pos { background:rgba(0,230,118,0.1); color:var(--green); }
+  .history-change.neg { background:rgba(229,57,53,0.1); color:#e53935; }
+  .history-change.neu { background:rgba(255,255,255,0.05); color:var(--muted); }
+
+  /* Admin note editor */
+  .note-editor { background:rgba(0,230,118,0.05); border:1px solid rgba(0,230,118,0.2); border-radius:12px; padding:16px; margin-top:16px; }
+  .note-editor-title { font-size:12px; font-weight:700; color:var(--green); margin-bottom:12px; letter-spacing:0.5px; }
+  .note-editor-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .note-input-wrap { display:flex; align-items:center; gap:8px; }
+  .note-input-wrap label { font-size:12px; color:var(--muted); }
+  .note-input { width:70px; background:#111; border:1px solid var(--border); color:var(--text); border-radius:8px; padding:8px 10px; font-size:14px; font-family:'DM Sans',sans-serif; outline:none; text-align:center; }
+  .note-input:focus { border-color:var(--green); }
+  .btn-save-note { background:var(--green); color:#000; border:none; border-radius:8px; padding:8px 16px; font-size:13px; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; }
+  .btn-reset-note { background:none; border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:8px 12px; font-size:12px; cursor:pointer; font-family:'DM Sans',sans-serif; }
+  .btn-reset-note:hover { border-color:#e53935; color:#e53935; }
+  .note-hint { font-size:11px; color:var(--muted); margin-top:8px; }
+
+  /* Add player */
+  .add-player-box { background:var(--card); border:1px dashed var(--border); border-radius:14px; padding:20px; margin-bottom:32px; display:none; }
+  .add-player-box.visible { display:block; }
+  .add-player-box h3 { font-size:14px; font-weight:600; margin-bottom:14px; }
+  .add-player-row { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
+  .form-group-sm { display:flex; flex-direction:column; gap:4px; }
+  .form-group-sm label { font-size:11px; color:var(--muted); letter-spacing:0.5px; }
+  .form-group-sm input { background:#111; border:1px solid var(--border); color:var(--text); border-radius:8px; padding:8px 12px; font-size:14px; font-family:'DM Sans',sans-serif; outline:none; width:160px; }
+  .form-group-sm input:focus { border-color:var(--green); }
+  .form-group-sm input.small { width:80px; }
+  .btn-add-player { background:var(--green); color:#000; border:none; border-radius:8px; padding:9px 18px; font-size:13px; font-weight:700; cursor:pointer; font-family:'DM Sans',sans-serif; align-self:flex-end; }
+
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--green); color:#000; font-weight:700; font-size:14px; padding:12px 24px; border-radius:12px; z-index:99999; animation:toastIn 0.3s ease; }
+  @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+
+  footer { text-align:center; padding:32px 0 48px; color:var(--muted); font-size:12px; border-top:1px solid var(--border); }
+  footer a { color:var(--muted); text-decoration:none; }
+  footer a:hover { color:var(--green); }
+
+  @media (max-width:600px) {
+    .ranking-table th.hide-mobile, .ranking-table td.hide-mobile { display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <a href="/" class="back-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      Retour aux matchs
+    </a>
+    <div class="header-badge">⚽ Profils</div>
+    <h1>LUNDI DES<span>CHAMPIONS</span></h1>
+    <p class="header-sub">Notes et profils des joueurs</p>
+  </header>
+
+  <div id="loading"><div class="spinner"></div><p>Chargement des profils...</p></div>
+
+  <div id="content" style="display:none;">
+    <div class="admin-bar">
+      <div class="admin-bar-left" id="last-update"></div>
+      <button class="btn-admin-toggle" id="btn-admin" onclick="toggleAdmin()">⚙ Administration</button>
+    </div>
+
+    <!-- Auth -->
+    <div class="auth-box" id="auth-box">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="password" id="pwd-input" placeholder="Mot de passe admin" onkeydown="if(event.key==='Enter')checkAuth()">
+        <button class="btn-auth" onclick="checkAuth()">Connexion</button>
+      </div>
+      <div class="auth-error" id="auth-error"></div>
+    </div>
+
+    <!-- Add player (admin only) -->
+    <div class="add-player-box" id="add-player-box">
+      <h3>➕ Ajouter un joueur manuellement</h3>
+      <div class="add-player-row">
+        <div class="form-group-sm">
+          <label>PRÉNOM</label>
+          <input type="text" id="inp-firstname" placeholder="ex: Rémi">
+        </div>
+        <div class="form-group-sm">
+          <label>NOM</label>
+          <input type="text" id="inp-lastname" placeholder="ex: Fabregue">
+        </div>
+        <div class="form-group-sm">
+          <label>NOTE DE DÉPART (/5)</label>
+          <input type="number" id="inp-note" class="small" min="1" max="5" step="0.5" value="3">
+        </div>
+        <button class="btn-add-player" onclick="addPlayer()">Ajouter</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table class="ranking-table">
+        <thead>
+          <tr>
+            <th>Joueur</th>
+            <th class="center">MJ</th>
+            <th class="center">Note</th>
+            <th class="center hide-mobile" id="th-actions" style="display:none;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="players-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Player profile modal -->
+<div id="player-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;padding:20px;overflow-y:auto;">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-name"></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="modal-stats"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="history-title">📈 Évolution de la note</div>
+    <div class="history-list" id="modal-history"></div>
+    <div class="note-editor" id="note-editor" style="display:none;">
+      <div class="note-editor-title">⚙️ Modifier la note manuellement</div>
+      <div class="note-editor-row">
+        <div class="note-input-wrap">
+          <label>Note (/5)</label>
+          <input type="number" class="note-input" id="manual-note-input" min="1" max="5" step="0.1">
+        </div>
+        <button class="btn-save-note" onclick="saveManualNote()">💾 Enregistrer</button>
+        <button class="btn-reset-note" onclick="resetManualNote()">↩ Reset auto</button>
+      </div>
+      <div class="note-hint">Reset = la note revient au calcul automatique basé sur les matchs joués.</div>
+    </div>
+  </div>
+</div>
+
+<footer><p>Fait avec ❤️ pour les <a href="/">Warriors du Lundi</a></p></footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, update, push, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDhuxG_tpZTVeb3QF1jtG-5Ho1qHbPXaBw",
+  authDomain: "matchs-foot.firebaseapp.com",
+  databaseURL: "https://matchs-foot-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "matchs-foot",
+  storageBucket: "matchs-foot.firebasestorage.app",
+  messagingSenderId: "616668760897",
+  appId: "1:616668760897:web:bab5448661ee0ae68b6fc0"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const ADMIN_PASSWORD = 'lundi2024';
+
+let isAdmin = false;
+let allMatches = {};
+let allPlayers = {}; // stored in Firebase under /joueurs
+let currentModalPlayer = null;
+
+// Load both matches and players
+let matchesLoaded = false, playersLoaded = false;
+
+onValue(ref(db, 'matchs'), snap => {
+  allMatches = snap.val() || {};
+  matchesLoaded = true;
+  if (playersLoaded) render();
+});
+
+onValue(ref(db, 'joueurs'), snap => {
+  allPlayers = snap.val() || {};
+  playersLoaded = true;
+  if (matchesLoaded) render();
+});
+
+// ── Compute note for a player based on matches ──
+function computeNote(player) {
+  if (!player) return null;
+
+  // If admin override exists, use it
+  if (player.noteManuelle !== undefined && player.noteManuelle !== null) {
+    return { note: player.noteManuelle, isManual: true };
+  }
+
+  const baseNote = player.noteBase || 3;
+  let note = baseNote;
+  const history = [];
+
+  // Get past matches sorted by date
+  const now = new Date();
+  const pastMatches = Object.values(allMatches)
+    .filter(m => {
+      if (!m.scoreA === undefined || !m.scoreB === undefined) return false;
+      if (m.scoreA === undefined) return false;
+      const dt = new Date(m.date + 'T' + (m.time || '00:00'));
+      return dt < now && m.matchId;
+    })
+    .sort((a, b) => new Date(a.date + 'T' + (a.time || '00:00')) - new Date(b.date + 'T' + (b.time || '00:00')));
+
+  const playerName = player.firstName + ' ' + player.lastName;
+
+  pastMatches.forEach(m => {
+    const teamA = m.teamA ? Object.values(m.teamA) : [];
+    const teamB = m.teamB ? Object.values(m.teamB) : [];
+
+    const inA = teamA.some(p => (p.firstName + ' ' + p.lastName).trim() === playerName.trim());
+    const inB = teamB.some(p => (p.firstName + ' ' + p.lastName).trim() === playerName.trim());
+    if (!inA && !inB) return;
+
+    const scoreA = m.scoreA;
+    const scoreB = m.scoreB;
+    const diff = Math.abs(scoreA - scoreB);
+
+    let result, myScore, theirScore;
+    if (inA) { myScore = scoreA; theirScore = scoreB; }
+    else      { myScore = scoreB; theirScore = scoreA; }
+
+    if (myScore > theirScore)       result = 'V';
+    else if (myScore < theirScore)  result = 'D';
+    else                            result = 'N';
+
+    const noteBefore = Math.round(note * 100) / 100;
+    let change = 0;
+    let changeLabel = '';
+
+    if (result === 'V') {
+      change = diff > 5 ? note * 0.20 : note * 0.10;
+      note = Math.min(5, note + change);
+      changeLabel = '+' + (diff > 5 ? '20%' : '10%');
+    } else if (result === 'D') {
+      change = diff > 5 ? note * 0.20 : note * 0.10;
+      note = Math.max(1, note - change);
+      changeLabel = '-' + (diff > 5 ? '20%' : '10%');
+    } else {
+      changeLabel = '=';
+    }
+
+    note = Math.round(note * 100) / 100;
+
+    history.push({
+      date: m.date,
+      result,
+      score: myScore + '-' + theirScore,
+      noteBefore,
+      noteAfter: note,
+      changeLabel,
+      diff,
+    });
+  });
+
+  return { note: Math.min(5, Math.max(1, Math.round(note * 10) / 10)), isManual: false, history };
+}
+
+// ── Count matches played ──
+function countMatchesPlayed(player) {
+  const now = new Date();
+  const playerName = (player.firstName + ' ' + player.lastName).trim();
+  let count = 0;
+  Object.values(allMatches).forEach(m => {
+    if (m.scoreA === undefined) return;
+    const dt = new Date(m.date + 'T' + (m.time || '00:00'));
+    if (dt >= now) return;
+    const teamA = m.teamA ? Object.values(m.teamA) : [];
+    const teamB = m.teamB ? Object.values(m.teamB) : [];
+    const all = [...teamA, ...teamB];
+    if (all.some(p => (p.firstName + ' ' + p.lastName).trim() === playerName)) count++;
+  });
+  return count;
+}
+
+// ── Render stars ──
+function renderStars(note) {
+  let html = '<span class="stars">';
+  for (let i = 1; i <= 5; i++) {
+    if (note >= i) html += '<span class="star full">★</span>';
+    else if (note >= i - 0.5) html += '<span class="star half">★</span>';
+    else html += '<span class="star empty">★</span>';
+  }
+  html += '</span>';
+  return html;
+}
+
+// ── Main render ──
+function render() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+
+  // Also sync players from matches (auto-detect players from teamA/teamB)
+  syncPlayersFromMatches();
+
+  const playerList = Object.entries(allPlayers).map(([id, p]) => {
+    const computed = computeNote(p);
+    const mj = countMatchesPlayed(p);
+    return { id, ...p, computed, mj };
+  }).sort((a, b) => b.mj - a.mj || (b.computed ? b.computed.note : 0) - (a.computed ? a.computed.note : 0));
+
+  const tbody = document.getElementById('players-body');
+  if (playerList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:40px;">Aucun joueur enregistré.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = playerList.map((p, i) => {
+    const initials = ((p.firstName || '')[0] || '') + ((p.lastName || '')[0] || '');
+    const note = p.computed ? p.computed.note : (p.noteBase || 3);
+    const isManual = p.computed ? p.computed.isManual : false;
+    const noteDisplay = renderStars(note)
+      + '<span class="note-val">' + note.toFixed(1) + '</span>'
+      + (isManual ? '<span class="note-manual">✎</span>' : '');
+
+    const adminBtn = isAdmin
+      ? '<button class="admin-edit-btn" onclick="openModal(event,\'' + p.id + '\')">✏️ Modifier</button>'
+      : '';
+
+    return '<tr style="animation-delay:' + (i * 0.03) + 's" onclick="openModal(event,\'' + p.id + '\')">'
+      + '<td><div class="player-cell"><div class="player-init">' + initials.toUpperCase() + '</div>'
+      + '<div class="player-name-wrap"><span class="player-name">' + p.firstName + ' ' + p.lastName + '</span>'
+      + (isManual ? '<span class="player-source">Note manuelle</span>' : '') + '</div></div></td>'
+      + '<td class="center">' + p.mj + '</td>'
+      + '<td class="center">' + noteDisplay + '</td>'
+      + '<td class="center hide-mobile" id="th-actions">' + adminBtn + '</td>'
+      + '</tr>';
+  }).join('');
+
+  document.getElementById('last-update').textContent = playerList.length + ' joueur' + (playerList.length > 1 ? 's' : '') + ' · Mis à jour automatiquement';
+}
+
+// Auto-sync: add players found in match teams but not yet in /joueurs
+async function syncPlayersFromMatches() {
+  const existing = new Set(
+    Object.values(allPlayers).map(p => (p.firstName + ' ' + p.lastName).trim().toLowerCase())
+  );
+  const toAdd = {};
+
+  Object.values(allMatches).forEach(m => {
+    const teamA = m.teamA ? Object.values(m.teamA) : [];
+    const teamB = m.teamB ? Object.values(m.teamB) : [];
+    [...teamA, ...teamB].forEach(p => {
+      const name = ((p.firstName || '') + ' ' + (p.lastName || '')).trim();
+      if (!name || existing.has(name.toLowerCase())) return;
+      if (toAdd[name.toLowerCase()]) return;
+      toAdd[name.toLowerCase()] = { firstName: p.firstName || '', lastName: p.lastName || '', noteBase: 3 };
+    });
+  });
+
+  for (const [, player] of Object.entries(toAdd)) {
+    const newRef = push(ref(db, 'joueurs'));
+    await set(newRef, player);
+  }
+}
+
+// ── Admin ──
+window.toggleAdmin = function() {
+  const box = document.getElementById('auth-box');
+  const btn = document.getElementById('btn-admin');
+  if (isAdmin) {
+    isAdmin = false;
+    btn.classList.remove('active');
+    btn.textContent = '⚙ Administration';
+    document.getElementById('add-player-box').classList.remove('visible');
+    document.getElementById('th-actions').style.display = 'none';
+    render();
+  } else {
+    box.classList.toggle('visible');
+  }
+};
+
+window.checkAuth = function() {
+  const val = document.getElementById('pwd-input').value;
+  if (val === ADMIN_PASSWORD) {
+    isAdmin = true;
+    document.getElementById('auth-box').classList.remove('visible');
+    document.getElementById('btn-admin').classList.add('active');
+    document.getElementById('btn-admin').textContent = '⚙ Admin connecté';
+    document.getElementById('add-player-box').classList.add('visible');
+    document.getElementById('th-actions').style.display = '';
+    render();
+  } else {
+    document.getElementById('auth-error').textContent = 'Mot de passe incorrect.';
+  }
+};
+
+// ── Add player manually ──
+window.addPlayer = async function() {
+  const firstName = document.getElementById('inp-firstname').value.trim();
+  const lastName = document.getElementById('inp-lastname').value.trim();
+  const noteBase = parseFloat(document.getElementById('inp-note').value) || 3;
+  if (!firstName && !lastName) { alert('Renseignez au moins un prénom ou nom.'); return; }
+  const newRef = push(ref(db, 'joueurs'));
+  await set(newRef, { firstName, lastName, noteBase: Math.min(5, Math.max(1, noteBase)) });
+  document.getElementById('inp-firstname').value = '';
+  document.getElementById('inp-lastname').value = '';
+  document.getElementById('inp-note').value = '3';
+  showToast('✅ Joueur ajouté !');
+};
+
+// ── Modal ──
+window.openModal = function(e, playerId) {
+  e.stopPropagation();
+  const p = allPlayers[playerId];
+  if (!p) return;
+  currentModalPlayer = playerId;
+
+  const computed = computeNote(p);
+  const note = computed ? computed.note : (p.noteBase || 3);
+  const mj = countMatchesPlayed(p);
+
+  document.getElementById('modal-name').textContent = p.firstName + ' ' + p.lastName;
+  document.getElementById('modal-stats').textContent = mj + ' match' + (mj > 1 ? 's' : '') + ' joué' + (mj > 1 ? 's' : '') + ' · Note : ' + note.toFixed(1) + '/5';
+
+  // History
+  const history = computed ? (computed.history || []) : [];
+  const histEl = document.getElementById('modal-history');
+  if (history.length === 0) {
+    histEl.innerHTML = '<div style="color:var(--muted);font-size:13px;font-style:italic;padding:8px 0;">Aucun match joué encore — note de départ : ' + (p.noteBase || 3) + '/5</div>';
+  } else {
+    // Show base note first
+    let rows = '<div class="history-item" style="border-style:dashed;">'
+      + '<span class="history-date">Départ</span>'
+      + '<span class="history-result" style="color:var(--muted);">—</span>'
+      + '<span style="flex:1;font-size:12px;color:var(--muted);">Note initiale attribuée par l\'admin</span>'
+      + '<span class="history-note-after">' + (p.noteBase || 3).toFixed(1) + '</span>'
+      + '</div>';
+
+    history.forEach(h => {
+      const dt = new Date(h.date + 'T00:00');
+      const dateStr = dt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      const changeClass = h.result === 'V' ? 'pos' : (h.result === 'D' ? 'neg' : 'neu');
+      rows += '<div class="history-item">'
+        + '<span class="history-date">' + dateStr + '</span>'
+        + '<span class="history-result ' + h.result + '">' + h.result + '</span>'
+        + '<span style="flex:1;font-size:12px;color:var(--muted);">' + h.score + ' (écart ' + h.diff + ')</span>'
+        + '<span class="history-note-before">' + h.noteBefore.toFixed(1) + '</span>'
+        + '<span class="history-arrow">→</span>'
+        + '<span class="history-note-after">' + h.noteAfter.toFixed(1) + '</span>'
+        + '<span class="history-change ' + changeClass + '">' + h.changeLabel + '</span>'
+        + '</div>';
+    });
+    histEl.innerHTML = rows;
+  }
+
+  // Admin note editor
+  const editor = document.getElementById('note-editor');
+  if (isAdmin) {
+    editor.style.display = 'block';
+    document.getElementById('manual-note-input').value = note.toFixed(1);
+  } else {
+    editor.style.display = 'none';
+  }
+
+  const modal = document.getElementById('player-modal');
+  modal.style.cssText = 'display:flex;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;padding:20px;overflow-y:auto;';
+};
+
+window.closeModal = function() {
+  document.getElementById('player-modal').style.display = 'none';
+  currentModalPlayer = null;
+};
+
+window.saveManualNote = async function() {
+  if (!currentModalPlayer) return;
+  const val = parseFloat(document.getElementById('manual-note-input').value);
+  if (isNaN(val) || val < 1 || val > 5) { alert('Note entre 1 et 5.'); return; }
+  await update(ref(db, 'joueurs/' + currentModalPlayer), { noteManuelle: Math.round(val * 10) / 10 });
+  closeModal();
+  showToast('✅ Note mise à jour !');
+};
+
+window.resetManualNote = async function() {
+  if (!currentModalPlayer) return;
+  if (!confirm('Remettre le calcul automatique pour ce joueur ?')) return;
+  await update(ref(db, 'joueurs/' + currentModalPlayer), { noteManuelle: null });
+  closeModal();
+  showToast('↩ Note réinitialisée');
+};
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// Close modal on overlay click
+document.getElementById('player-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+</body>
+</html>
