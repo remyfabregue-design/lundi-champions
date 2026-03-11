@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classement ⚽ Lundi des Champions</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00E676;
+    --green-dark: #00C853;
+    --black: #0A0A0A;
+    --card: #1A1A1A;
+    --border: #2A2A2A;
+    --text: #F0F0F0;
+    --muted: #888;
+    --gold: #FFD700;
+    --silver: #C0C0C0;
+    --bronze: #CD7F32;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--black); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: radial-gradient(circle at 20% 20%, rgba(0,230,118,0.06) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0,230,118,0.04) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+  .container { max-width: 800px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 1; }
+
+  /* Header */
+  header { padding: 60px 0 40px; text-align: center; border-bottom: 1px solid var(--border); margin-bottom: 50px; }
+  .header-badge { display: inline-block; background: rgba(0,230,118,0.12); border: 1px solid rgba(0,230,118,0.3); color: var(--green); font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; padding: 6px 16px; border-radius: 20px; margin-bottom: 24px; }
+  h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(56px, 10vw, 88px); line-height: 0.9; letter-spacing: 2px; }
+  h1 span { color: var(--green); display: block; }
+  .header-sub { margin-top: 18px; color: var(--muted); font-size: 15px; font-weight: 300; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; text-decoration: none; margin-bottom: 32px; transition: color 0.2s; }
+  .back-link:hover { color: var(--green); }
+
+  /* Loading */
+  #loading { text-align: center; padding: 60px 0; color: var(--muted); }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Podium top 3 */
+  .podium { display: flex; align-items: flex-end; justify-content: center; gap: 12px; margin-bottom: 48px; }
+  .podium-item { display: flex; flex-direction: column; align-items: center; animation: slideIn 0.5s ease both; }
+  .podium-item:nth-child(1) { animation-delay: 0.1s; }
+  .podium-item:nth-child(2) { animation-delay: 0s; }
+  .podium-item:nth-child(3) { animation-delay: 0.2s; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+
+  .podium-avatar { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 22px; margin-bottom: 8px; border: 2px solid transparent; }
+  .podium-item.rank-1 .podium-avatar { background: rgba(255,215,0,0.15); border-color: var(--gold); color: var(--gold); width: 68px; height: 68px; font-size: 26px; }
+  .podium-item.rank-2 .podium-avatar { background: rgba(192,192,192,0.12); border-color: var(--silver); color: var(--silver); }
+  .podium-item.rank-3 .podium-avatar { background: rgba(205,127,50,0.12); border-color: var(--bronze); color: var(--bronze); }
+  .podium-name { font-size: 12px; font-weight: 600; text-align: center; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .podium-ratio { font-family: 'Bebas Neue', sans-serif; font-size: 16px; color: var(--green); }
+  .podium-medal { font-size: 20px; margin-bottom: 4px; }
+  .podium-block { border-radius: 10px 10px 0 0; width: 80px; display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: rgba(255,255,255,0.15); }
+  .podium-item.rank-1 .podium-block { height: 80px; background: rgba(255,215,0,0.08); border: 1px solid rgba(255,215,0,0.2); color: rgba(255,215,0,0.3); }
+  .podium-item.rank-2 .podium-block { height: 60px; background: rgba(192,192,192,0.06); border: 1px solid rgba(192,192,192,0.15); color: rgba(192,192,192,0.25); }
+  .podium-item.rank-3 .podium-block { height: 44px; background: rgba(205,127,50,0.06); border: 1px solid rgba(205,127,50,0.15); color: rgba(205,127,50,0.25); }
+
+  /* Stats summary */
+  .stats-bar { display: flex; gap: 12px; margin-bottom: 32px; }
+  .stat-chip { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; flex: 1; text-align: center; }
+  .stat-chip-val { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--green); line-height: 1; }
+  .stat-chip-label { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: 0.5px; }
+
+  /* Table */
+  .table-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .table-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; }
+  .table-subtitle { font-size: 12px; color: var(--muted); }
+
+  .ranking-table { width: 100%; border-collapse: collapse; margin-bottom: 60px; }
+  .ranking-table thead tr { border-bottom: 1px solid var(--border); }
+  .ranking-table th { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); padding: 8px 12px; text-align: center; }
+  .ranking-table th:first-child { text-align: left; }
+  .ranking-table th.col-name { text-align: left; }
+
+  .ranking-table tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; animation: rowIn 0.4s ease both; }
+  @keyframes rowIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+  .ranking-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+  .ranking-table td { padding: 14px 12px; text-align: center; font-size: 14px; }
+  .ranking-table td.col-name { text-align: left; }
+
+  .col-rank { font-family: 'Bebas Neue', sans-serif; font-size: 20px; color: var(--muted); width: 40px; }
+  .rank-1 .col-rank { color: var(--gold); }
+  .rank-2 .col-rank { color: var(--silver); }
+  .rank-3 .col-rank { color: var(--bronze); }
+
+  .player-cell { display: flex; align-items: center; gap: 10px; }
+  .player-init { width: 34px; height: 34px; border-radius: 50%; background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.2); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--green); flex-shrink: 0; }
+  .rank-1 .player-init { background: rgba(255,215,0,0.1); border-color: rgba(255,215,0,0.3); color: var(--gold); }
+  .rank-2 .player-init { background: rgba(192,192,192,0.1); border-color: rgba(192,192,192,0.25); color: var(--silver); }
+  .rank-3 .player-init { background: rgba(205,127,50,0.1); border-color: rgba(205,127,50,0.25); color: var(--bronze); }
+  .player-name { font-weight: 600; font-size: 14px; }
+
+  .ratio-bar-wrap { display: flex; align-items: center; gap: 8px; justify-content: center; }
+  .ratio-val { font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: var(--green); min-width: 44px; }
+  .ratio-bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; max-width: 60px; }
+  .ratio-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 1s ease; }
+
+  .badge-v { color: var(--green); font-weight: 600; }
+  .badge-d { color: #e53935; font-weight: 600; }
+  .badge-n { color: var(--muted); font-weight: 600; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 60px 0; color: var(--muted); }
+  .empty-icon { font-size: 48px; display: block; margin-bottom: 16px; }
+
+  /* Footer */
+  footer { text-align: center; padding: 32px 0 48px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--green); }
+
+  /* Mobile */
+  @media (max-width: 600px) {
+    .stats-bar { flex-wrap: wrap; }
+    .stat-chip { min-width: calc(50% - 6px); }
+    .ranking-table th.hide-mobile, .ranking-table td.hide-mobile { display: none; }
+    .ratio-bar { display: none; }
+    .podium-block { width: 64px; }
+    .podium-item.rank-1 .podium-block { height: 64px; }
+    .podium-item.rank-2 .podium-block { height: 48px; }
+    .podium-item.rank-3 .podium-block { height: 36px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <a href="/" class="back-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      Retour aux matchs
+    </a>
+    <div class="header-badge">⚽ Saison en cours</div>
+    <h1>LUNDI DES<span>CHAMPIONS</span></h1>
+    <p class="header-sub">Classement des joueurs</p>
+  </header>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Calcul du classement...</p>
+  </div>
+
+  <div id="content" style="display:none;">
+    <div id="podium" class="podium"></div>
+    <div class="stats-bar" id="stats-bar"></div>
+    <div class="table-header">
+      <span class="table-title">🏆 Classement général</span>
+    </div>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th style="width:40px;">#</th>
+          <th class="col-name">Joueur</th>
+          <th>MJ</th>
+          <th class="hide-mobile">V</th>
+          <th class="hide-mobile">N</th>
+          <th class="hide-mobile">D</th>
+          <th>Ratio V</th>
+        </tr>
+      </thead>
+      <tbody id="ranking-body"></tbody>
+    </table>
+
+    <div id="empty-state" class="empty-state" style="display:none;">
+      <span class="empty-icon">📊</span>
+      <p>Pas encore assez de données pour établir un classement.</p>
+      <p style="margin-top:8px;font-size:13px;">Revenez après le prochain match !</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>Fait avec ❤️ pour les <a href="/">Warriors du Lundi</a></p>
+</footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDhuxG_tpZTVeb3QF1jtG-5Ho1qHbPXaBw",
+  authDomain: "matchs-foot.firebaseapp.com",
+  databaseURL: "https://matchs-foot-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "matchs-foot",
+  storageBucket: "matchs-foot.firebasestorage.app",
+  messagingSenderId: "616668760897",
+  appId: "1:616668760897:web:bab5448661ee0ae68b6fc0"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+onValue(ref(db, 'matchs'), (snapshot) => {
+  const allMatches = snapshot.val() || {};
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+  buildRanking(allMatches);
+});
+
+function buildRanking(allMatches) {
+  const players = {}; // name -> stats
+
+  const now = new Date();
+
+  Object.values(allMatches).forEach(m => {
+    // Only past matches with score and teams
+    if (!m.matchId) return;
+    const dt = new Date(m.date + 'T' + (m.time || '00:00'));
+    if (dt >= now) return;
+
+    // Need score + at least one team
+    const scoreA = m.scoreA;
+    const scoreB = m.scoreB;
+    if (scoreA === undefined || scoreB === undefined) return;
+
+    // Teams: prefer Firebase corrections, fallback to API data stored
+    const teamA = m.teamA ? Object.values(m.teamA) : [];
+    const teamB = m.teamB ? Object.values(m.teamB) : [];
+    if (teamA.length === 0 && teamB.length === 0) return;
+
+    // Determine result
+    let resultA, resultB;
+    if (scoreA > scoreB)      { resultA = 'V'; resultB = 'D'; }
+    else if (scoreB > scoreA) { resultA = 'D'; resultB = 'V'; }
+    else                      { resultA = 'N'; resultB = 'N'; }
+
+    const processTeam = (team, scored, conceded, result) => {
+      team.forEach(p => {
+        const name = ((p.firstName || '') + ' ' + (p.lastName || '')).trim();
+        if (!name || name === '') return;
+        if (!players[name]) {
+          players[name] = { name, mj: 0, v: 0, d: 0, n: 0, bf: 0, bc: 0 };
+        }
+        players[name].mj++;
+        players[name].bf += scored;
+        players[name].bc += conceded;
+        if (result === 'V') players[name].v++;
+        else if (result === 'D') players[name].d++;
+        else players[name].n++;
+      });
+    };
+
+    processTeam(teamA, scoreA, scoreB, resultA);
+    processTeam(teamB, scoreB, scoreA, resultB);
+  });
+
+  const ranking = Object.values(players)
+    .map(p => {
+      const ratio = p.mj > 0 ? p.v / p.mj : 0;
+      // Secondary: points (3V + 1N), tertiary: goal diff
+      const points = p.v * 3 + p.n;
+      const diff = p.bf - p.bc;
+      return { ...p, ratio, points, diff };
+    })
+    .sort((a, b) => {
+      if (b.ratio !== a.ratio) return b.ratio - a.ratio;
+      if (b.points !== a.points) return b.points - a.points;
+      return b.diff - a.diff;
+    });
+
+  if (ranking.length === 0) {
+    document.getElementById('empty-state').style.display = 'block';
+    return;
+  }
+
+  // Stats summary
+  const totalMatches = Object.values(allMatches).filter(m => m.matchId && new Date(m.date + 'T' + (m.time || '00:00')) < now).length;
+  document.getElementById('stats-bar').innerHTML =
+    '<div class="stat-chip"><div class="stat-chip-val">' + ranking.length + '</div><div class="stat-chip-label">Joueurs classés</div></div>'
+    + '<div class="stat-chip"><div class="stat-chip-val">' + totalMatches + '</div><div class="stat-chip-label">Matchs joués</div></div>'
+    + '<div class="stat-chip"><div class="stat-chip-val">' + Math.round(ranking[0].ratio * 100) + '%</div><div class="stat-chip-label">Meilleur ratio</div></div>'
+    + '<div class="stat-chip"><div class="stat-chip-val">' + Math.max(...ranking.map(p => p.bf)) + '</div><div class="stat-chip-label">Max buts marqués</div></div>';
+
+  // Podium top 3
+  const medals = ['🥇', '🥈', '🥉'];
+  const rankClasses = ['rank-1', 'rank-2', 'rank-3'];
+  const podiumOrder = ranking.length >= 3 ? [ranking[1], ranking[0], ranking[2]] : ranking.slice(0, 3);
+  const podiumRanks = ranking.length >= 3 ? [2, 1, 3] : [1, 2, 3];
+
+  document.getElementById('podium').innerHTML = podiumOrder.map((p, i) => {
+    const rank = podiumRanks[i];
+    const initials = p.name.split(' ').map(n => n[0] || '').join('').substring(0, 2).toUpperCase();
+    return '<div class="podium-item ' + rankClasses[rank - 1] + '">'
+      + '<div class="podium-avatar">' + initials + '</div>'
+      + '<div class="podium-medal">' + medals[rank - 1] + '</div>'
+      + '<div class="podium-name">' + p.name.split(' ')[0] + '</div>'
+      + '<div class="podium-ratio">' + Math.round(p.ratio * 100) + '%</div>'
+      + '<div class="podium-block">' + rank + '</div>'
+      + '</div>';
+  }).join('');
+
+  // Table
+  const tbody = document.getElementById('ranking-body');
+  tbody.innerHTML = ranking.map((p, i) => {
+    const rank = i + 1;
+    const rankClass = rank <= 3 ? 'rank-' + rank : '';
+    const initials = p.name.split(' ').map(n => n[0] || '').join('').substring(0, 2).toUpperCase();
+    const ratioStr = Math.round(p.ratio * 100) + '%';
+    const fillPct = Math.round(p.ratio * 100);
+    const medal = rank <= 3 ? medals[rank - 1] + ' ' : '';
+
+    let rowStyle = '';
+    if (rank === 1) rowStyle = 'style="animation-delay:0.05s"';
+    else rowStyle = 'style="animation-delay:' + (i * 0.04) + 's"';
+
+    return '<tr class="' + rankClass + '" ' + rowStyle + '>'
+      + '<td class="col-rank">' + medal + rank + '</td>'
+      + '<td class="col-name"><div class="player-cell"><div class="player-init">' + initials + '</div><span class="player-name">' + p.name + '</span></div></td>'
+      + '<td>' + p.mj + '</td>'
+      + '<td class="hide-mobile badge-v">' + p.v + '</td>'
+      + '<td class="hide-mobile badge-n">' + p.n + '</td>'
+      + '<td class="hide-mobile badge-d">' + p.d + '</td>'
+      + '<td><div class="ratio-bar-wrap"><span class="ratio-val">' + ratioStr + '</span><div class="ratio-bar"><div class="ratio-fill" style="width:' + fillPct + '%"></div></div></div></td>'
+      + '</tr>';
+  }).join('');
+}
+</script>
+</body>
+</html>
