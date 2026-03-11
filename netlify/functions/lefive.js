@@ -65,6 +65,15 @@ exports.handler = async (event) => {
             `https://api-front.lefive.fr/splf/v1/matchplayers?match_id=${matchId}&appId=1`,
             { method: 'GET', headers: authHeaders }
           );
+          const debug = event.queryStringParameters?.debug === '1';
+          if (debug) {
+            return { statusCode: 200, headers, body: JSON.stringify({
+              debug: true,
+              matchPlayersStatus: playersRes.statusCode,
+              matchPlayersRaw: playersRes.body.substring(0, 2000),
+              matchRaw: { firstTeam: match.firstTeam, secondTeam: match.secondTeam }
+            })};
+          }
           const players = JSON.parse(playersRes.body);
           const list = Array.isArray(players) ? players : (players.data || []);
           const firstTeamId = match.firstTeam?.id;
